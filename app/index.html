@@ -23,7 +23,7 @@
     <main class="shell">
       <header>
         <div class="brand"><img class="mark" src="icons/icon.svg" alt="" /> Wortweg</div>
-        <div class="header-tools"><span class="pill" id="ai-pill">Wortweg</span><button class="theme-toggle" id="theme-toggle" type="button" aria-label="Toggle dark mode"></button></div>
+        <div class="header-tools"><span class="pill" id="ai-pill">Wortweg</span><button class="icon-button" id="settings-open" type="button" aria-label="AI settings" title="AI settings" hidden>⚙</button><button class="icon-button" id="theme-toggle" type="button" aria-label="Toggle dark mode"></button></div>
       </header>
 
       <section class="view active" id="welcome">
@@ -110,6 +110,23 @@
             <div class="metric"><b id="level-label">A1</b><span>Level</span></div>
           </div>
           <button class="button" id="restart">New session</button>
+        </article>
+      </section>
+      <section class="view" id="settings">
+        <article class="card">
+          <div class="eyebrow">Settings</div>
+          <h2>AI provider</h2>
+          <p class="small">Wortweg works offline without AI. With a provider, it writes a new story for every session and reviews your translations. Keys are saved in the <code>.env</code> file on this computer and are never sent to the browser.</p>
+          <form class="form-grid" id="settings-form" autocomplete="off">
+            <label class="field">Provider<select id="set-provider"></select></label>
+            <p class="small field-note" id="set-note"></p>
+            <label class="field" id="set-keys-field">API key<input id="set-keys" type="password" spellcheck="false" /><small>Several keys: separate them with commas. They are tried in turn when one hits its rate limit.</small></label>
+            <label class="field" id="set-base-field">Base URL<input id="set-base" type="url" placeholder="https://example.com/v1" spellcheck="false" /></label>
+            <div class="field" id="set-model-field"><label for="set-model">Model</label><div class="field-row"><input id="set-model" list="set-model-list" spellcheck="false" placeholder="Model name" /><button type="button" class="button secondary" id="set-load-models">Load list</button></div><datalist id="set-model-list"></datalist></div>
+            <label class="field" id="set-fallbacks-field">Fallback models<input id="set-fallbacks" spellcheck="false" placeholder="Optional, comma-separated" /><small>Tried in order when the main model is busy or out of quota.</small></label>
+            <div class="feedback" id="settings-feedback" hidden></div>
+            <div class="card-footer"><button type="button" class="button secondary" id="settings-back">Back</button><div class="actions-inline"><button type="button" class="button secondary" id="settings-test">Test connection</button><button type="submit" class="button" id="settings-save">Save</button></div></div>
+          </form>
         </article>
       </section>
     </main>

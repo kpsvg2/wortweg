@@ -10,10 +10,14 @@
   "scripts": {
     "start": "node server/server.mjs",
     "open": "node server/launch.mjs",
-    "test": "node tests/vocab.mjs && node tests/sessions.mjs && node tests/levels.mjs && node tests/articles.mjs && node tests/mistakes.mjs",
+    "test": "node tests/vocab.mjs && node tests/sessions.mjs && node tests/levels.mjs && node tests/articles.mjs && node tests/mistakes.mjs && node tests/config.mjs && node tests/server.mjs",
     "test:ai": "node tests/ai-live.mjs",
     "test:vocab-ai": "node tests/vocab-ai-live.mjs",
     "history": "node tests/history.mjs",
-    "goethe:tags": "node server/prepare-goethe.mjs"
+    "goethe:tags": "node server/prepare-goethe.mjs",
+    "screenshots": "node tools/screenshots.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.63.0"
   }
 }

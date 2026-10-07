@@ -1,5 +1,5 @@
 # Builds a one-file Windows installer (windows\dist\Wortweg-Setup.exe) with IExpress.
-# Your .env (API keys) is only bundled with -IncludeKeys; never publish such a build.
+# Your .env (API keys) and data/goethe are only bundled with -IncludeKeys; never publish such a build.
 param([switch]$IncludeKeys)
 
 $ErrorActionPreference = 'Stop'
@@ -15,10 +15,12 @@ New-Item -ItemType Directory -Force $stage, $pack, $dist | Out-Null
 
 try {
   robocopy $project $stage /E /NFL /NDL /NJH /NJS /NP `
-    /XD (Join-Path $project 'windows\dist') (Join-Path $project 'runtime') (Join-Path $project '.git') (Join-Path $project '.github') (Join-Path $project 'node_modules') (Join-Path $project 'data\profiles') (Join-Path $project 'data\reports') `
+    /XD (Join-Path $project 'windows\dist') (Join-Path $project 'runtime') (Join-Path $project '.git') (Join-Path $project '.github') (Join-Path $project 'node_modules') (Join-Path $project 'data') (Join-Path $project 'docs\screenshots') (Join-Path $project 'tools') `
     /XF .env server.log | Out-Null
   if ($LASTEXITCODE -ge 8) { throw "robocopy failed: $LASTEXITCODE" }
+  # Private builds also carry your optional Goethe lists; public builds never do.
   if ($IncludeKeys -and (Test-Path (Join-Path $project '.env'))) { Copy-Item (Join-Path $project '.env') $stage }
+  if ($IncludeKeys -and (Test-Path (Join-Path $project 'data\goethe'))) { robocopy (Join-Path $project 'data\goethe') (Join-Path $stage 'data\goethe') /E /NFL /NDL /NJH /NJS /NP | Out-Null }
 
   [IO.Compression.ZipFile]::CreateFromDirectory($stage, (Join-Path $pack 'wortweg.zip'))
   Copy-Item (Join-Path $here 'install.ps1'), (Join-Path $here 'install.cmd') $pack

@@ -5,10 +5,11 @@ import { mkdir, readFile, writeFile, access, appendFile } from 'node:fs/promises
 import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { hostname } from 'node:os';
-import { extname, join, normalize, resolve, sep } from 'node:path';
+import { extname, join, normalize, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
-import { loadEnvFile, getConfig, runAi, Mistakes } from './ai.mjs';
+import { loadEnvFile, getConfig, runAi, testConnection, listModels, Mistakes } from './ai.mjs';
+import { PROVIDERS, keysFor, updateEnvFile } from './providers.mjs';
 import { loadAssets, expandVocabulary } from './vocab-expand.mjs';
 import { tagThemes, untaggedCount } from './goethe.mjs';
 
@@ -20,17 +21,19 @@ const Articles = createRequire(import.meta.url)('../app/js/articles.js');
 const serverDir = resolve(fileURLToPath(new URL('.', import.meta.url)));
 const projectRoot = resolve(serverDir, '..');
 const root = join(projectRoot, 'app');
-loadEnvFile(projectRoot);
+const envPath = process.env.ENV_FILE ? resolve(process.env.ENV_FILE) : join(projectRoot, '.env');
+loadEnvFile(envPath);
 const port = Number(process.env.PORT || 4173);
 const host = process.env.HOST || '127.0.0.1';
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json; charset=utf-8', '.webmanifest': 'application/manifest+json', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
-const ai = getConfig();
-const configured = ai.configured;
-const send = (response, status, body, type = 'application/json; charset=utf-8') => { response.writeHead(status, { 'Content-Type': type, 'Access-Control-Allow-Origin': '*' }); response.end(typeof body === 'string' || body instanceof Uint8Array ? body : JSON.stringify(body)); };
+let ai = getConfig();
+const send = (response, status, body, type = 'application/json; charset=utf-8') => { response.writeHead(status, { 'Content-Type': type }); response.end(typeof body === 'string' || body instanceof Uint8Array ? body : JSON.stringify(body)); };
 
 // One profile per machine + install path, so copies of the project don't share progress.
 const envId = `env-${createHash('sha256').update(`${hostname()}|${projectRoot}`).digest('hex').slice(0, 12)}`;
-const profileDir = join(projectRoot, 'data', 'profiles', envId);
+const dataDir = process.env.DATA_DIR ? resolve(process.env.DATA_DIR) : join(projectRoot, 'data');
+const profileDir = join(dataDir, 'profiles', envId);
+const profileLabel = (relative(projectRoot, profileDir).startsWith('..') ? profileDir : relative(projectRoot, profileDir)).replace(/\\/g, '/');
 const metaPath = join(profileDir, 'meta.json');
 const progressPath = join(profileDir, 'progress.json');
 const aiLogPath = join(profileDir, 'ai-log.jsonl');
@@ -58,7 +61,7 @@ function updateExtraVocab(change) {
 
 // With a Goethe list installed, tag a few batches of it with themes on every start until done.
 async function prepareGoethe() {
-  if (!configured || !assets.goethe || !untaggedCount(assets.goethe)) return;
+  if (!ai.configured || !assets.goethe || !untaggedCount(assets.goethe)) return;
   try {
     const result = await tagThemes(ai, { goethe: assets.goethe, themes: assets.themes, log: line => console.log(`[goethe] ${line}`), maxBatches: STARTUP_TAG_BATCHES });
     if (result.done) console.log('[goethe] theme tags complete');
@@ -110,7 +113,7 @@ async function ensureProfile() {
       hostname: hostname(),
       root: projectRoot,
       createdAt: new Date().toISOString(),
-      resetHint: `Delete this folder to reset progress: data/profiles/${envId}`
+      resetHint: `Delete this folder to reset progress: ${profileLabel}`
     }, null, 2));
   }
   try { await access(progressPath); }
@@ -148,22 +151,80 @@ if (idleMinutes > 0) {
   }, 30000).unref();
 }
 
+// Writes must be JSON from this same origin, so other websites can't post to the local server.
+function trustedWrite(request) {
+  if (!/^application\/json/i.test(request.headers['content-type'] || '')) return false;
+  const origin = request.headers.origin;
+  return !origin || origin === `http://${request.headers.host}`;
+}
+const isLoopback = (request) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(request.socket.remoteAddress);
+
+// --- AI settings (only from this computer; keys are never sent back, only their last 4 characters) ---
+const hint = (key) => `…${key.slice(-4)}`;
+function settingsView() {
+  return {
+    configured: ai.configured, problem: ai.problem || null,
+    current: { provider: ai.provider || 'none', model: ai.model || '', fallbacks: (ai.models || []).slice(1).join(', '), baseUrl: PROVIDERS[ai.provider]?.custom ? ai.baseUrl : '' },
+    providers: Object.entries(PROVIDERS).map(([id, p]) => ({ id, label: p.label, keyless: Boolean(p.keyless), custom: Boolean(p.custom), keyUrl: p.keyUrl || null, note: p.note || null, model: p.model || '', fallbacks: (p.fallbacks || []).join(', '), baseUrl: p.baseUrl || '', keys: keysFor(id).map(hint) }))
+  };
+}
+// Turns the settings form into .env changes; a blank key field keeps the saved keys.
+function settingsChanges(body) {
+  const clean = (value, max = 300) => { const text = String(value ?? '').trim(); if (text.length > max || /[\r\n]/.test(text)) throw new Error('Invalid value.'); return text; };
+  const provider = clean(body.provider, 40);
+  if (provider !== 'none' && !PROVIDERS[provider]) throw new Error('Unknown provider.');
+  const preset = PROVIDERS[provider];
+  const changes = { AI_PROVIDER: provider, AI_MODEL: preset ? clean(body.model, 120) : '', AI_FALLBACK_MODELS: preset ? clean(body.fallbacks) : '', AI_BASE_URL: preset?.custom ? clean(body.baseUrl) : '' };
+  if (changes.AI_BASE_URL && !/^https?:\/\/\S+$/.test(changes.AI_BASE_URL)) throw new Error('The base URL must start with http:// or https://.');
+  const keys = clean(body.keys, 2000).split(/[\s,]+/).filter(Boolean).join(',');
+  if (keys && preset && !preset.keyless) preset.keyVars.forEach((name, i) => { changes[name] = i === 0 ? keys : ''; });
+  return changes;
+}
+function withChanges(changes) {
+  const env = { ...process.env };
+  for (const [name, value] of Object.entries(changes)) { if (value) env[name] = value; else delete env[name]; }
+  return env;
+}
+async function handleSettings(request, response, url) {
+  if (!isLoopback(request)) return send(response, 403, { error: 'AI settings can only be changed on the computer running Wortweg.' });
+  try {
+    if (url.pathname === '/api/settings' && request.method === 'GET') return send(response, 200, settingsView());
+    const changes = settingsChanges(await readBody(request));
+    if (url.pathname === '/api/settings' && request.method === 'PUT') {
+      updateEnvFile(envPath, changes);
+      for (const [name, value] of Object.entries(changes)) { if (value) process.env[name] = value; else delete process.env[name]; }
+      ai = getConfig();
+      console.log(`[settings] AI: ${ai.configured ? `${ai.provider} · ${ai.model}` : `off${ai.problem ? ` (${ai.problem})` : ''}`}`);
+      return send(response, 200, settingsView());
+    }
+    const config = getConfig(withChanges(changes));
+    if (!config.configured) return send(response, 400, { error: config.problem ? `Not ready: ${config.problem}.` : 'AI is switched off.' });
+    if (url.pathname === '/api/settings/test' && request.method === 'POST') return send(response, 200, { model: config.model, results: await testConnection(config) });
+    if (url.pathname === '/api/settings/models' && request.method === 'POST') return send(response, 200, { models: await listModels(config) });
+    return send(response, 404, { error: 'Not found.' });
+  } catch (error) {
+    return send(response, 400, { error: error.message });
+  }
+}
+
 const server = createServer(async (request, response) => {
   lastRequest = Date.now();
   const url = new URL(request.url, `http://${request.headers.host}`);
   if (url.pathname === '/api/ping') return send(response, 200, { ok: true });
-  if (url.pathname === '/ai-config.js') return send(response, 200, `window.WORTWEG_AI_ENDPOINT = ${JSON.stringify(configured ? '/api/ai' : '')};\n`, 'text/javascript; charset=utf-8');
+  if (url.pathname.startsWith('/api/') && request.method !== 'GET' && !trustedWrite(request)) return send(response, 403, { error: 'Rejected cross-site request.' });
+  if (url.pathname.startsWith('/api/settings')) return handleSettings(request, response, url);
+  if (url.pathname === '/ai-config.js') return send(response, 200, `window.WORTWEG_AI_ENDPOINT = ${JSON.stringify(ai.configured ? '/api/ai' : '')};\n`, 'text/javascript; charset=utf-8');
 
   if (url.pathname === '/api/profile') {
     if (request.method === 'GET') {
       const progress = await readProgress();
-      return send(response, 200, { id: envId, path: `data/profiles/${envId}`, progress });
+      return send(response, 200, { id: envId, path: profileLabel, progress });
     }
     if (request.method === 'PUT' || request.method === 'POST') {
       try {
         const body = await readBody(request);
         const progress = await writeProgress(body.progress || body);
-        return send(response, 200, { ok: true, id: envId, path: `data/profiles/${envId}`, progress });
+        return send(response, 200, { ok: true, id: envId, path: profileLabel, progress });
       } catch (error) {
         return send(response, 400, { error: 'Could not save the profile.' });
       }
@@ -179,7 +240,7 @@ const server = createServer(async (request, response) => {
 
   if (url.pathname === '/api/vocab/expand') {
     if (request.method !== 'POST') return send(response, 405, { error: 'Only POST is supported.' });
-    if (!configured) return send(response, 503, { error: 'AI is not configured (.env).' });
+    if (!ai.configured) return send(response, 503, { error: 'AI is not configured (open AI settings).' });
     let input = {};
     try {
       input = await readBody(request);
@@ -211,12 +272,12 @@ const server = createServer(async (request, response) => {
   }
 
   if (url.pathname === '/api/ai/status') {
-    return send(response, 200, { configured, provider: ai.provider, model: ai.model });
+    return send(response, 200, { configured: ai.configured, provider: ai.provider, label: ai.label, model: ai.model, problem: ai.problem });
   }
 
   if (url.pathname === '/api/ai') {
     if (request.method !== 'POST') return send(response, 405, { error: 'Only POST is supported.' });
-    if (!configured) return send(response, 503, { error: 'AI is not configured (.env).' });
+    if (!ai.configured) return send(response, 503, { error: 'AI is not configured (open AI settings).' });
     let input = {};
     try {
       input = await readBody(request);
@@ -248,7 +309,7 @@ server.on('error', (error) => {
   process.exit(1);
 });
 server.listen(port, host, () => {
-  const aiLabel = configured ? `${ai.provider} · ${ai.model}${ai.apiKeys?.length > 1 ? ` · ${ai.apiKeys.length} keys` : ''}` : 'offline mode (no .env)';
-  console.log(`Wortweg: http://localhost:${port} | AI: ${aiLabel} | profile: data/profiles/${envId}`);
+  const aiLabel = ai.configured ? `${ai.provider} · ${ai.model}${ai.apiKeys?.length > 1 ? ` · ${ai.apiKeys.length} keys` : ''}` : `offline mode${ai.problem ? ` (${ai.problem})` : ''}`;
+  console.log(`Wortweg: http://localhost:${port} | AI: ${aiLabel} | profile: ${profileLabel}`);
   prepareGoethe();
 });

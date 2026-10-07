@@ -551,6 +551,89 @@ $('articles-next').addEventListener('click', nextArticle);
 $('articles-dont-know').addEventListener('click', () => answerArticle($('articles-dont-know')));
 $('articles-exit').addEventListener('click', () => { renderArticlesHome(); show('welcome'); });
 
+// AI settings screen; only available when the local server is running.
+const settings = { data: null };
+const providerInfo = (id) => settings.data?.providers.find(provider => provider.id === id) || null;
+function settingsMessage(text, kind = '') {
+  const box = $('settings-feedback');
+  box.hidden = !text;
+  box.className = `feedback ${kind}`;
+  box.textContent = text || '';
+}
+async function settingsRequest(path, method, body) {
+  const response = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+function settingsForm() {
+  return { provider: $('set-provider').value, keys: $('set-keys').value, model: $('set-model').value, fallbacks: $('set-fallbacks').value, baseUrl: $('set-base').value };
+}
+function fillProviderFields(id, { useCurrent = false } = {}) {
+  const provider = providerInfo(id);
+  const current = settings.data.current;
+  $('set-keys-field').hidden = !provider || provider.keyless;
+  $('set-base-field').hidden = !provider?.custom;
+  $('set-model-field').hidden = !provider;
+  $('set-fallbacks-field').hidden = !provider;
+  $('settings-test').hidden = !provider;
+  const link = provider?.keyUrl ? ` <a href="${escapeHtml(provider.keyUrl)}" target="_blank" rel="noopener">Get an API key ↗</a>` : '';
+  $('set-note').innerHTML = provider ? `${escapeHtml(provider.note || '')}${link}` : 'Offline mode: stories come from built-in templates and translations get a simple word check.';
+  if (!provider) return;
+  const same = useCurrent && current.provider === id;
+  $('set-model').value = same ? current.model : provider.model;
+  $('set-fallbacks').value = same ? current.fallbacks : provider.fallbacks;
+  $('set-base').value = same ? current.baseUrl : provider.baseUrl;
+  $('set-keys').value = '';
+  $('set-keys').placeholder = provider.keys.length ? `Saved: ${provider.keys.join(', ')} · leave empty to keep` : 'Paste your key';
+  $('set-model-list').innerHTML = '';
+}
+async function openSettings() {
+  try { settings.data = await settingsRequest('/api/settings', 'GET'); }
+  catch (error) { alert(error.message); return; }
+  $('set-provider').innerHTML = '<option value="none">Off (offline mode)</option>' + settings.data.providers.map(provider => `<option value="${provider.id}">${escapeHtml(provider.label)}</option>`).join('');
+  $('set-provider').value = providerInfo(settings.data.current.provider) ? settings.data.current.provider : 'none';
+  fillProviderFields($('set-provider').value, { useCurrent: true });
+  settingsMessage(!settings.data.configured && settings.data.problem ? `AI is not active yet: ${settings.data.problem}.` : '', 'bad');
+  show('settings');
+}
+async function busy(button, label, task) {
+  const text = button.textContent;
+  button.disabled = true; button.textContent = label;
+  try { await task(); } catch (error) { settingsMessage(error.message, 'bad'); }
+  finally { button.disabled = false; button.textContent = text; }
+}
+$('settings-open').addEventListener('click', openSettings);
+$('settings-back').addEventListener('click', () => { renderPoolStatus(); show('welcome'); });
+$('set-provider').addEventListener('change', () => { fillProviderFields($('set-provider').value); settingsMessage(''); });
+$('set-load-models').addEventListener('click', () => busy($('set-load-models'), 'Loading…', async () => {
+  const { models } = await settingsRequest('/api/settings/models', 'POST', settingsForm());
+  $('set-model-list').innerHTML = models.map(model => `<option value="${escapeHtml(model)}"></option>`).join('');
+  settingsMessage(models.length ? `${models.length} models available. Click the model field to pick one.` : 'The provider returned no models.', models.length ? 'ok' : 'bad');
+}));
+$('settings-test').addEventListener('click', () => busy($('settings-test'), 'Testing…', async () => {
+  const { model, results } = await settingsRequest('/api/settings/test', 'POST', settingsForm());
+  const failed = results.filter(result => !result.ok);
+  const slowest = Math.max(...results.map(result => result.ms || 0));
+  settingsMessage(failed.length
+    ? failed.map(result => `${results.length > 1 ? `Key ${result.key}: ` : ''}${result.error}`).join('\n')
+    : `It works: ${model} answered${results.length > 1 ? ` with all ${results.length} keys` : ''} in ${(slowest / 1000).toFixed(1)} s. Don't forget to save.`, failed.length ? 'bad' : 'ok');
+}));
+$('settings-form').addEventListener('submit', (event) => {
+  event.preventDefault();
+  busy($('settings-save'), 'Saving…', async () => {
+    settings.data = await settingsRequest('/api/settings', 'PUT', settingsForm());
+    window.WORTWEG_AI_ENDPOINT = settings.data.configured ? '/api/ai' : '';
+    state.prefetch = null;
+    $('ai-pill').className = 'pill';
+    loadAiStatus();
+    fillProviderFields($('set-provider').value, { useCurrent: true });
+    const { current } = settings.data;
+    settingsMessage(settings.data.configured ? `Saved. AI is on: ${providerInfo(current.provider).label} · ${current.model}.`
+      : current.provider === 'none' ? 'Saved. Wortweg runs in offline mode.' : `Saved, but AI is not active: ${settings.data.problem}.`, settings.data.configured || current.provider === 'none' ? 'ok' : 'bad');
+  });
+});
+
 // Tells the user when the local server has stopped (it exits after idling).
 function startHeartbeat() {
   if (!state.profile?.path) return;
@@ -582,6 +665,7 @@ vocabReady.then(() => {
   renderArticlesHome();
   renderPoolStatus();
   startHeartbeat();
+  $('settings-open').hidden = !state.profile?.path;
   const remembered = progressData().level;
   if (remembered) selectLevel(remembered, { remember: false });
 });

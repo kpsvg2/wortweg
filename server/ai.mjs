@@ -1,39 +1,12 @@
-// AI layer: provider config, prompts, response schemas and a resilient call loop
+// AI layer: prompts, response schemas and a resilient call loop
 // (model fallback chain, multiple API keys, per-slot cooldowns on rate limits).
-import { readFileSync, existsSync } from 'node:fs';
-import { join } from 'node:path';
 import { createRequire } from 'node:module';
+import { AiError, DRIVERS } from './providers.mjs';
+
+export { AiError, getConfig, loadEnvFile, listModels, PROVIDERS } from './providers.mjs';
 
 const require = createRequire(import.meta.url);
 export const Mistakes = require('../app/js/mistakes.js');
-
-// Minimal .env reader; real environment variables always win.
-export function loadEnvFile(dir) {
-  const file = join(dir, '.env');
-  if (!existsSync(file)) return false;
-  for (const line of readFileSync(file, 'utf8').split(/\r?\n/)) {
-    const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
-    if (!match || line.trim().startsWith('#')) continue;
-    const value = match[2].replace(/^(['"])(.*)\1$/, '$2');
-    if (value && process.env[match[1]] === undefined) process.env[match[1]] = value;
-  }
-  return true;
-}
-
-export function getConfig(env = process.env) {
-  const geminiKeys = [...new Set([env.GEMINI_API_KEY, env.GEMINI_API_KEYS, env.GOOGLE_API_KEY].flatMap(value => String(value || '').split(',')).map(key => key.trim()).filter(Boolean))];
-  const provider = (env.AI_PROVIDER || (geminiKeys.length ? 'gemini' : env.AI_BASE_URL ? 'openai' : '')).toLowerCase();
-  if (provider === 'gemini' && geminiKeys.length) {
-    const model = env.GEMINI_MODEL || 'gemini-3.8-flash';
-    const fallbacks = (env.GEMINI_FALLBACK_MODELS ?? 'gemini-3.7-flash,gemini-3.6-flash,gemini-3.5-flash')
-      .split(',').map(name => name.trim()).filter(name => name && name !== model);
-    return { configured: true, provider, apiKey: geminiKeys[0], apiKeys: geminiKeys, model, models: [model, ...fallbacks], thinking: (env.GEMINI_THINKING || 'low').toLowerCase() };
-  }
-  if (provider === 'openai' && env.AI_BASE_URL && env.AI_API_KEY && env.AI_MODEL) {
-    return { configured: true, provider, apiKey: env.AI_API_KEY, model: env.AI_MODEL, baseUrl: env.AI_BASE_URL.replace(/\/$/, '') };
-  }
-  return { configured: false, provider: provider || null, model: null };
-}
 
 // Random scene settings so consecutive lessons don't read alike.
 const NARRATORS = ['ich', 'ich', 'wir (ein Paar)', 'eine Kollegin namens Lena', 'mein Nachbar Herr Demir', 'ein Student namens Jonas', 'meine Schwester', 'ein Rentner namens Klaus', 'eine junge Mutter namens Aylin'];
@@ -127,50 +100,6 @@ Return JSON only: {"questions":[{"de":"","en":"","wrong":["","",""]}],"lesson":{
   return `${TEACHER} Level: ${input.level}. Original German: ${input.sourceText}. Reference English: ${input.referenceTranslation}. Student's translation: ${input.studentTranslation}. Give constructive, meaning-focused feedback in English.${weakPointsRule('de-en')} Return only this JSON shape: ${REVIEW_EXAMPLE}.`;
 }
 
-class AiError extends Error {
-  constructor(message, status, retryable = false) { super(message); this.status = status; this.retryable = retryable; }
-}
-
-async function callGemini(config, prompt, { temperature, schema }) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(config.model)}:generateContent`;
-  const thinking = config.thinking && config.thinking !== 'default' ? { thinkingLevel: config.thinking } : null;
-  const request = (withThinking) => fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': config.apiKey },
-    body: JSON.stringify({
-      contents: [{ role: 'user', parts: [{ text: prompt }] }],
-      generationConfig: { temperature, responseMimeType: 'application/json', responseSchema: schema, ...(withThinking ? { thinkingConfig: thinking } : {}) }
-    })
-  });
-  let response = await request(Boolean(thinking));
-  let data = await response.json().catch(() => ({}));
-  // Older models reject thinkingConfig; retry once without it.
-  if (thinking && response.status === 400 && /thinking/i.test(data?.error?.message || '')) {
-    response = await request(false);
-    data = await response.json().catch(() => ({}));
-  }
-  if (!response.ok) {
-    const message = String(data?.error?.message || response.statusText).split('\n')[0].replace(/ For more information.*$/, '');
-    const retry = (data?.error?.details || []).find(detail => detail.retryDelay)?.retryDelay;
-    throw new AiError(`${config.model} ${response.status}: ${message}${retry ? ` (retry in ${retry})` : ''}`, response.status, response.status === 429 || response.status >= 500);
-  }
-  const candidate = data.candidates?.[0];
-  const text = (candidate?.content?.parts || []).filter(part => !part.thought).map(part => part.text || '').join('');
-  if (!text) throw new AiError(`Gemini returned an empty response (finishReason: ${candidate?.finishReason || data.promptFeedback?.blockReason || '?'})`, 502, true);
-  return { text, usage: { input: data.usageMetadata?.promptTokenCount, output: data.usageMetadata?.candidatesTokenCount, thinking: data.usageMetadata?.thoughtsTokenCount, total: data.usageMetadata?.totalTokenCount } };
-}
-
-async function callOpenAi(config, prompt, { temperature }) {
-  const response = await fetch(`${config.baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${config.apiKey}` },
-    body: JSON.stringify({ model: config.model, temperature, response_format: { type: 'json_object' }, messages: [{ role: 'user', content: prompt }] })
-  });
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) throw new AiError(`AI ${response.status}: ${data?.error?.message || response.statusText}`, response.status, response.status === 429 || response.status >= 500);
-  return { text: data.choices?.[0]?.message?.content || '', usage: { input: data.usage?.prompt_tokens, output: data.usage?.completion_tokens, total: data.usage?.total_tokens } };
-}
-
 function validateLesson(result, input) {
   if (!result || !Array.isArray(result.questions) || !result.lesson?.de || !result.lesson?.en) throw new AiError('Response is missing questions/lesson fields.', 422, true);
   const requested = (input.words || []).map(word => word.de);
@@ -239,7 +168,7 @@ export async function runAi(config, input, context = {}) {
 
 export async function callModel(config, { prompt, schema, temperature, validate }) {
   if (!config.configured) throw new AiError('AI is not configured (see .env.example).', 503);
-  const call = config.provider === 'gemini' ? callGemini : callOpenAi;
+  const call = DRIVERS[config.driver];
   const started = Date.now();
   const errors = [];
   let attempts = 0;
@@ -282,12 +211,18 @@ export async function callModel(config, { prompt, schema, temperature, validate 
   throw new AiError(errors.length > 1 ? `All models failed: ${errors.join(' | ')}` : errors[0], 502);
 }
 
-export { AiError };
-
-export async function listModels(config) {
-  if (config.provider !== 'gemini') return [];
-  const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models?pageSize=200', { headers: { 'x-goog-api-key': config.apiKey } });
-  const data = await response.json();
-  if (!response.ok) throw new AiError(`Gemini ${response.status}: ${data?.error?.message || response.statusText}`, response.status);
-  return (data.models || []).filter(model => (model.supportedGenerationMethods || []).includes('generateContent')).map(model => model.name.replace(/^models\//, ''));
+// One tiny request per key with the main model; used by the settings screen's "Test" button.
+export async function testConnection(config) {
+  const call = DRIVERS[config.driver];
+  const schema = { type: 'OBJECT', properties: { ok: { type: 'BOOLEAN' } }, required: ['ok'] };
+  const results = [];
+  for (const [index, apiKey] of config.apiKeys.entries()) {
+    const started = Date.now();
+    try {
+      const { text } = await call({ ...config, apiKey }, 'Reply with the JSON object {"ok": true}.', { temperature: 0, schema });
+      JSON.parse(text.replace(/^```(?:json)?\s*|\s*```$/g, ''));
+      results.push({ key: index + 1, ok: true, ms: Date.now() - started });
+    } catch (error) { results.push({ key: index + 1, ok: false, error: error.message }); }
+  }
+  return results;
 }
