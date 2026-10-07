@@ -1,0 +1,19 @@
+{
+  "name": "wortweg",
+  "version": "1.0.0",
+  "description": "Learn German vocabulary in context: 5 words, a short AI-written story, then translate it.",
+  "private": true,
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server/server.mjs",
+    "open": "node server/launch.mjs",
+    "test": "node tests/vocab.mjs && node tests/sessions.mjs && node tests/levels.mjs && node tests/articles.mjs && node tests/mistakes.mjs",
+    "test:ai": "node tests/ai-live.mjs",
+    "test:vocab-ai": "node tests/vocab-ai-live.mjs",
+    "history": "node tests/history.mjs",
+    "goethe:tags": "node server/prepare-goethe.mjs"
+  }
+}

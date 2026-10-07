@@ -1,0 +1,16 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Local data: progress, AI logs, reports, optional Goethe lists
+/data/
+
+# Windows build output and bundled Node.js
+windows/dist/
+runtime/
+
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
