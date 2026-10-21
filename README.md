@@ -75,6 +75,18 @@ Click **⚙** in the top-right corner, pick a provider, paste a key, press **Tes
 
 Settings are saved to a `.env` file in the project folder; you can also edit it by hand (see [`.env.example`](.env.example) and [docs/CONFIGURATION.md](docs/CONFIGURATION.md)).
 
+### Android app (optional)
+
+`mobile/` packages the same app and server into an Android APK, with the AI settings from your `.env` built in. Everything works as on the computer, including read-aloud through the phone's voice engine.
+
+```bash
+cd mobile
+npm install
+npm run apk          # writes Wortweg.apk to your desktop
+```
+
+Copy the APK to the phone and open it to install. You need the Android SDK and JDK 21; see [docs/MOBILE.md](docs/MOBILE.md). The APK contains your API keys, so keep it to yourself.
+
 ## How a session works
 
 1. **Pick a level.** The next session is prepared in the background, so starting is instant.
@@ -97,6 +109,7 @@ server/              Node server: static files, profile storage, AI proxy, setti
 tests/               offline checks (npm test) and live AI checks
 tools/               screenshot generator
 windows/             one-file Windows installer
+mobile/              Android app (Capacitor): runs server/ inside the phone
 data/                your local data, never committed
 ```
 
@@ -115,7 +128,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for adding words, themes or providers.
 
 ## Your data
 
-Progress lives in `data/profiles/env-<id>/` (one folder per computer and install path): `progress.json`, `vocab-extra.json` (words the AI added) and `ai-log.jsonl`. Delete the folder to start over. In the demo or any static hosting, progress is kept in the browser's localStorage instead.
+Progress lives in `data/profiles/env-<id>/` (one folder per computer and install path): `progress.json`, `vocab-extra.json` (words the AI added) and `ai-log.jsonl`. Delete the folder to start over. In the demo or any static hosting, progress is kept in the browser's localStorage instead. The Android app keeps the same files in the app's own storage; uninstalling it deletes them.
 
 ## License
 

@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Turkish interface option (EN / TR switch in the header): UI, word meanings, offline lesson translations, article rules, AI stories, AI reviews and AI-added words all follow the chosen language.
+- Android app (`mobile/`): the same app and server in one APK, with your AI settings built in and read-aloud through the phone's voice engine.
 
 ## 1.0.0 — 2026-10-07
 
