@@ -149,8 +149,15 @@
     const rule = ENDING_RULES.find(item => item.test.test(String(noun || '')));
     return rule ? { label: rule.label, article: rule.article, strength: rule.strength } : null;
   }
-  function ruleNote(noun, article) {
+  const STRENGTH_TR = { always: 'her zaman', almost: 'neredeyse her zaman', mostly: 'genellikle' };
+  const LABEL_TR = { '-chen (diminutive)': '-chen (küçültme eki)', '-lein (diminutive)': '-lein (küçültme eki)', '-in (female person)': '-in (kadın kişi)' };
+  function ruleNote(noun, article, lang = 'en') {
     const rule = endingRule(noun);
+    if (lang === 'tr') {
+      if (!rule) return 'Bu ek için genel bir kural yok; artikeli kelimeyle birlikte öğren. Birleşik isimlerde artikel son parçadan gelir.';
+      const base = `Kural: ${LABEL_TR[rule.label] || rule.label} ile biten isimler ${STRENGTH_TR[rule.strength]} “${rule.article}” alır`;
+      return rule.article === article ? `${base}.` : `${base}; bu kelime bir istisna.`;
+    }
     if (!rule) return 'There is no general rule for this ending; learn the article together with the word. In compound nouns the article comes from the last part.';
     const base = `Rule: nouns ending in ${rule.label} ${STRENGTH_TEXT[rule.strength]} take “${rule.article}”`;
     return rule.article === article ? `${base}.` : `${base}; this word is an exception.`;

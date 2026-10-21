@@ -23,6 +23,7 @@ Wortweg gives you five German words in a quick quiz, then a short story that use
 - **5 words → 1 story → your translation → feedback.** A small spaced-repetition scheduler picks the words: unknown ones come back after a few sessions, known ones rarely.
 - **Four levels (A1–B2).** The story's grammar grows with you: present tense at A1, Perfekt at A2, subordinate clauses and zu-infinitives at B1, Konjunktiv II at B2.
 - **Both directions.** The translation step alternates between German → English and English → German.
+- **English or Turkish.** Pick the language in the header; meanings, translations, offline stories, AI stories and AI feedback all switch with it.
 - **Learns your weak spots.** The AI tags your mistakes (verb position, cases, separable verbs …) and the next stories practise exactly those.
 - **Articles mode.** Every noun you know is drilled for der/die/das; the ones you miss come back more often.
 - **Guess mode.** Guess the article from the noun's ending and learn the rule behind it (‑ung → die, ‑chen → das …).
@@ -86,8 +87,9 @@ Settings are saved to a `.env` file in the project folder; you can also edit it 
 ```
 app/                 the web app (plain HTML/CSS/JS, no build step)
   data/vocabulary.js   built-in words and themes
+  data/vocabulary.tr.js  Turkish meanings and translations
   js/                  engine (sentences), session (word selection), validate,
-                       mistakes, articles, app (UI)
+                       mistakes, articles, i18n (EN/TR strings), app (UI)
 server/              Node server: static files, profile storage, AI proxy, settings
   providers.mjs        provider presets and API calls
   ai.mjs               prompts, fallback models, key rotation

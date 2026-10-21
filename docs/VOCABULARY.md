@@ -2,6 +2,8 @@
 
 Built-in words live in [`app/data/vocabulary.js`](../app/data/vocabulary.js), grouped into themes. Words the AI adds are stored per user in `data/profiles/<id>/vocab-extra.json` in the same format.
 
+Turkish versions of the learner-facing fields (`m`, `t`, `tp`, `ti`, `c`, `sgm`) and theme texts live in [`app/data/vocabulary.tr.js`](../app/data/vocabulary.tr.js), keyed by the German word. AI-added words carry them inline as a `tr` object; in Turkish mode, words without Turkish fields are skipped.
+
 Every entry carries the pieces the offline sentence engine needs to build one example sentence in several grammatical forms (present, Perfekt, dass-clause, nachdem + Plusquamperfekt, zu-infinitive), together with its English translations.
 
 ```js

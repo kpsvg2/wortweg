@@ -1,5 +1,5 @@
 // Validates every built-in word and builds many offline lessons to catch broken sentences.
-import { loadThemes, Engine, Validate, Levels, seeded, report, heading, summary, containsWord } from './lib.mjs';
+import { loadThemes, loadTurkish, Engine, Validate, Levels, seeded, report, heading, summary, containsWord } from './lib.mjs';
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i > -1 ? Number(process.argv[i + 1]) : fallback; };
 const LESSONS = arg('lessons', 40);
@@ -52,6 +52,32 @@ for (const theme of themes) {
 }
 const uniqueLessonProblems = [...new Set(lessonProblems)];
 report(uniqueLessonProblems.length ? 'FAIL' : 'PASS', 'Generated lessons have no broken text and use all 5 words', uniqueLessonProblems.length ? `${uniqueLessonProblems.length} problems:\n    ${uniqueLessonProblems.slice(0, 20).join('\n    ')}` : `${lessons} lessons`);
+
+heading('Turkish: overlay fields and offline lessons');
+const TR = loadTurkish();
+const trProblems = [];
+themes.forEach(theme => { if (!TR.themes[theme.id]?.name || !TR.themes[theme.id].pres || !TR.themes[theme.id].past) trProblems.push(`${theme.id}: Turkish theme text missing`); });
+const trPool = pool.map(word => ({ ...word, ...TR.words[word.w] }));
+pool.forEach(word => Validate.validateTurkish(word, TR.words[word.w], Engine).forEach(message => trProblems.push(`${word.w}: ${message}`)));
+const trThemes = themes.map(theme => ({ ...theme, pres: [theme.pres[0], TR.themes[theme.id]?.pres], past: [theme.past[0], TR.themes[theme.id]?.past] }));
+const trRandom = seeded(7);
+let trLessons = 0;
+for (const theme of trThemes) {
+  const words = trPool.filter(word => word.theme === theme.id);
+  for (const level of Levels.LEVELS) {
+    for (let i = 0; i < 10; i++) {
+      const pick = [...words].sort(() => trRandom() - 0.5).slice(0, 5);
+      const lesson = Engine.buildLesson(level, theme, pick, '', 'tr');
+      trLessons++;
+      const bad = /undefined|\bnull\b|NaN|\s{2,}|\s[.,]|,,|\.\.|(?<!\p{L})(the|and|I)(?!\p{L})/u.exec(lesson.en);
+      if (bad) trProblems.push(`${theme.id}/${level}: broken Turkish text ("${bad[0]}"): ${lesson.en}`);
+      const lower = lesson.en.split(/(?<=[.!?])\s+/).find(sentence => /^[a-zçğıöşü]/.test(sentence));
+      if (lower) trProblems.push(`${theme.id}/${level}: sentence starts lower-case: ${lower}`);
+    }
+  }
+}
+const uniqueTr = [...new Set(trProblems)];
+report(uniqueTr.length ? 'FAIL' : 'PASS', 'Every word has Turkish fields and Turkish lessons read cleanly', uniqueTr.length ? `${uniqueTr.length} problems:\n    ${uniqueTr.slice(0, 20).join('\n    ')}` : `${pool.length} words, ${trLessons} lessons`);
 
 heading('Distribution');
 report('INFO', 'Words per theme', themes.map(theme => `${theme.name}: ${theme.words.length}`).join(' · '));

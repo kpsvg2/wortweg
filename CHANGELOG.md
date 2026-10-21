@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Turkish interface option (EN / TR switch in the header): UI, word meanings, offline lesson translations, article rules, AI stories, AI reviews and AI-added words all follow the chosen language.
+
 ## 1.0.0 — 2026-10-07
 
 First public release.

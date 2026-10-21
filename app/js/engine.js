@@ -143,28 +143,59 @@
     }
   };
 
+  // Turkish side of the same templates; suffixes can't be glued onto finished sentences, so clauses are linked with neutral phrases.
+  const lowTr = (text) => text.charAt(0).toLocaleLowerCase('tr') + text.slice(1);
+  const capTr = (text) => text.charAt(0).toLocaleUpperCase('tr') + text.slice(1);
+  const accTr = (phrase) => phrase.replace(/mak$/, 'mayı').replace(/mek$/, 'meyi');
+  const turkish = {
+    A1: (theme, [a, b, c, d, e]) => [theme.pres[1], a.t, b.t, 'Sonra ' + lowTr(c.t), stripDot(d.t) + ' ve ' + lowTr(e.t)],
+    A2: (theme, [a, b, c, d, e]) => [theme.past[1], 'Önce ' + lowTr(a.tp), 'Ardından ' + lowTr(b.tp), c.tp, 'Arkadaşıma şunu anlattım: ' + d.tp, 'Akşam ' + lowTr(e.tp)],
+    B1: (theme, [a, b, c, d, e]) => [
+      theme.past[1],
+      canZu(a) ? capTr(accTr(a.ti)) + ' planlamıştım.' : a.tp,
+      b.tp + ' Bundan sonra ' + lowTr(c.tp),
+      stripDot(d.tp) + (d.p ? '; yine de gün sonunda oldukça iyi geçti.' : ', bu yüzden sonunda memnundum.'),
+      'Ayrıca ' + lowTr(e.tp),
+      'Akşam yorgundum, bu yüzden erken yattım.'
+    ],
+    B2: (theme, [a, b, c, d, e]) => [
+      theme.past[1],
+      'Geriye dönüp bakınca, günün beklenenden daha olaylı geçtiğini söyleyebilirim.',
+      canZu(a) ? 'Her şeyden önce ' + a.ti + ' benim için önemliydi.' : 'En çok aklımda kalan şuydu: ' + a.tp,
+      b.tp + ' Bundan sonra ' + lowTr(c.tp),
+      stripDot(d.tp) + (d.p ? '; yine de genel olarak her şey sorunsuz geçti.' : ', bu yüzden genel olarak memnundum.'),
+      canZu(e) ? 'Daha fazla zamanım olsaydı, ayrıca ' + accTr(e.ti) + ' denerdim.' : 'Üstelik ' + lowTr(e.tp)
+    ]
+  };
+  const NOTE = {
+    en: (e, example, grammar) => `“${e.w}” = “${e.m}”. Its meaning in the text should show up in your translation. Example: ${example} → ${e.t}${grammar ? ' · Grammar focus: ' + grammar : ''}`,
+    tr: (e, example, grammar) => `“${e.w}” = “${e.m}”. Metindeki anlamı çevirinde görünmeli. Örnek: ${example} → ${e.t}${grammar ? ' · Dilbilgisi odağı: ' + grammar : ''}`
+  };
+
   const STOPWORDS = new Set(['the', 'and', 'for', 'with', 'from', 'into', 'your', 'something', 'someone']);
-  // Lower-case English word starts that a translation must contain to count as "mentioning" the word.
+  // Lower-case word starts (in the learner's language) that a translation must contain to count as "mentioning" the word.
   function checkStems(entry) {
     if (Array.isArray(entry.c) && entry.c.length) return entry.c.map(s => s.toLowerCase());
-    return [...new Set(entry.m.toLowerCase().replace(/^to /, '').split(/[\s/·,()]+/)
+    return [...new Set(entry.m.toLowerCase().replace(/^to /, '').replace(/m[ae]k\b/g, '').split(/[\s/·,()]+/)
       .filter(part => part.length > 2 && !STOPWORDS.has(part)))].slice(0, 4);
   }
   function mentions(text, stems) {
-    const normalized = ' ' + (text || '').toLowerCase().replace(/[.,;:!?"'“”‘’()\-]/g, ' ') + ' ';
-    return stems.some(stem => normalized.includes(' ' + stem));
+    const clean = (lower) => ' ' + lower.replace(/[.,;:!?"'“”‘’()\-]/g, ' ') + ' ';
+    const forms = [clean((text || '').toLowerCase()), clean((text || '').toLocaleLowerCase('tr'))];
+    return stems.some(stem => forms.some(normalized => normalized.includes(' ' + stem)));
   }
 
-  function buildLesson(level, theme, entries, grammarNote) {
+  function buildLesson(level, theme, entries, grammarNote, lang = 'en') {
     const ordered = placeAction(level, placeProblem(level, arrange(level, entries)));
     const pack = (templates[level] || templates.A1)(theme, ordered);
+    const target = lang === 'tr' ? (turkish[level] || turkish.A1)(theme, ordered) : pack.en;
     return {
       de: pack.de.join(' '),
-      en: pack.en.join(' '),
+      en: target.join(' '),
       checks: ordered.map(e => ({
         words: checkStems(e),
         lemma: e.w,
-        note: `“${e.w}” = “${e.m}”. Its meaning in the text should show up in your translation. Example: ${sentence(form.presMain(e))} → ${e.t}${grammarNote ? ' · Grammar focus: ' + grammarNote : ''}`
+        note: (NOTE[lang] || NOTE.en)(e, sentence(form.presMain(e)), grammarNote)
       }))
     };
   }

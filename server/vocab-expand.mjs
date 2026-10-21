@@ -13,7 +13,11 @@ export function loadAssets(appDir, { tagsPath = TAGS_PATH } = {}) {
   const context = { window: {} };
   vm.createContext(context);
   vm.runInContext(readFileSync(join(appRoot, 'data', 'vocabulary.js'), 'utf8'), context);
+  vm.runInContext(readFileSync(join(appRoot, 'data', 'vocabulary.tr.js'), 'utf8'), context);
   const goethe = loadGoethe();
+  // Built-in words carry their Turkish fields as word.tr, like AI-added words, so prompt examples show both languages.
+  const trWords = context.window.WORTWEG_VOCAB_TR.words;
+  context.window.WORTWEG_VOCAB.themes.forEach(theme => theme.words.forEach(word => { if (trWords[word.w]) word.tr = trWords[word.w]; }));
   return {
     themes: context.window.WORTWEG_VOCAB.themes,
     Engine: require(join(appRoot, 'js', 'engine.js')),
@@ -27,10 +31,11 @@ export function loadAssets(appDir, { tagsPath = TAGS_PATH } = {}) {
 export const lemmaKey = Levels.lemmaKey;
 
 const S = { type: 'STRING' };
+const TR_SCHEMA = { type: 'OBJECT', properties: { m: S, t: S, tp: S, ti: S, c: { type: 'ARRAY', items: S }, sgm: S }, required: ['m', 't', 'tp', 'c'] };
 const ENTRY_SCHEMA = {
   type: 'OBJECT',
-  properties: { w: S, m: S, k: S, s: S, v: S, r: S, sep: S, aux: S, pp: S, pret: S, inf: S, t: S, tp: S, ti: S, c: { type: 'ARRAY', items: S }, p: { type: 'BOOLEAN' }, pl: { type: 'BOOLEAN' }, sg: S, sgm: S },
-  required: ['w', 'm', 'k', 'v', 'r', 't', 'tp', 'c']
+  properties: { w: S, m: S, k: S, s: S, v: S, r: S, sep: S, aux: S, pp: S, pret: S, inf: S, t: S, tp: S, ti: S, c: { type: 'ARRAY', items: S }, p: { type: 'BOOLEAN' }, pl: { type: 'BOOLEAN' }, sg: S, sgm: S, tr: TR_SCHEMA },
+  required: ['w', 'm', 'k', 'v', 'r', 't', 'tp', 'c', 'tr']
 };
 const vocabSchema = (count) => ({ type: 'OBJECT', properties: { words: { type: 'ARRAY', minItems: count, items: ENTRY_SCHEMA } }, required: ['words'] });
 
@@ -71,6 +76,7 @@ Every word comes with an example sentence in PIECES for the app's grammar engine
 - t: English present-tense translation of the sentence, tp: English past-tense translation; both end with a full stop.
 - c: 1-3 lower-case English word starts to look for in a translation; each must appear at the START of a word in t (e.g. "I tidy my room." → "tidy", "room").
 - p: true if the sentence describes a mishap or negative situation.
+- tr: the same learner fields in TURKISH (the app can also be used in Turkish): tr.m = short Turkish meaning (verbs as -mak/-mek infinitive), tr.t / tr.tp = Turkish present / past translation of the sentence (full stop at the end), tr.ti = Turkish infinitive phrase ending in -mak/-mek (only when ti is set), tr.sgm = Turkish meaning of the singular (only when sgm is set), tr.c = 1-3 lower-case Turkish word starts that appear at the START of a word in tr.t (e.g. "Saat yedide kalkıyorum." → "kalk").
 Example entries (copy the format exactly):
 ${examples.map(example => JSON.stringify(example)).join('\n')}
 Return JSON only: {"words":[...]} — ${listed ? `at most ${count}` : `exactly ${count}`} words.`;
@@ -79,6 +85,7 @@ Return JSON only: {"words":[...]} — ${listed ? `at most ${count}` : `exactly $
 function cleanEntry(raw) {
   const entry = {};
   for (const [key, value] of Object.entries(raw || {})) {
+    if (key === 'tr') { const tr = cleanEntry(value && typeof value === 'object' ? value : {}); if (Object.keys(tr).length) entry.tr = tr; continue; }
     if (key === 'c') { const stems = (Array.isArray(value) ? value : []).map(s => String(s).trim().toLowerCase()).filter(Boolean); if (stems.length) entry.c = stems; continue; }
     if (key === 'p' || key === 'pl') { if (value) entry[key] = 1; continue; }
     if (typeof value === 'string' && value.trim()) entry[key] = value.trim();
@@ -118,7 +125,7 @@ export async function expandVocabulary(config, assets, { themeId, level = 'A2', 
         const problems = !key ? ['w is empty']
           : taken.has(key) || accepted.some(a => lemmaKey(a.w) === key) ? ['already in the pool']
           : fromList && !candidateLevel.has(key) ? ['not one of the requested list words']
-          : assets.Validate.validateEntry(entry, assets.Engine);
+          : [...assets.Validate.validateEntry(entry, assets.Engine), ...assets.Validate.validateTurkish(entry, entry.tr, assets.Engine)];
         if (problems.length) rejected.push({ w: entry.w || '?', problems });
         else if (accepted.length < count) accepted.push(entry);
       }

@@ -7,23 +7,23 @@
   const EXAMPLE_LIMIT = 3;
 
   const TOPICS = {
-    'verb-position': { label: 'Verb position (2nd in main clauses, last in subclauses)', focus: 'mehrere Haupt- und Nebensätze, in denen das konjugierte Verb deutlich an zweiter Stelle bzw. am Satzende steht; Sätze, die mit einer Zeitangabe beginnen (Heute gehe ich …)', min: 'A1' },
-    conjugation: { label: 'Verb conjugation', focus: 'verschiedene Subjekte (ich, du, er/sie, wir, ihr, sie), damit viele unterschiedliche Verbformen vorkommen', min: 'A1' },
-    separable: { label: 'Separable verbs', focus: 'mindestens zwei trennbare Verben (z. B. anrufen, einkaufen, aufstehen), im Hauptsatz getrennt', min: 'A1' },
-    'article-case': { label: 'Articles and cases (nominative/accusative/dative)', focus: 'mehrere Nomen im Akkusativ und Dativ mit deutlich sichtbaren Artikeln (den, dem, einen, einem, der)', min: 'A1' },
-    preposition: { label: 'Prepositions', focus: 'häufige Präpositionen mit festem Kasus (mit, zu, bei, für, ohne, aus, in/auf + Akkusativ oder Dativ)', min: 'A1' },
-    perfekt: { label: 'Perfect tense (haben/sein + past participle)', focus: 'Perfekt-Formen mit haben UND mit sein (z. B. ist gefahren, hat gekauft)', min: 'A2' },
-    tense: { label: 'Choice of tense', focus: 'einen deutlichen Wechsel zwischen Gegenwart und Vergangenheit mit klaren Zeitsignalen', min: 'A2' },
-    subclause: { label: 'Subordinate clauses (weil, dass, wenn, obwohl …)', focus: 'mehrere Nebensätze mit weil, dass, wenn oder obwohl', min: 'A2' },
-    adjective: { label: 'Adjective endings', focus: 'Adjektive vor Nomen mit unterschiedlichen Endungen (ein großer Tisch, mit dem neuen Auto)', min: 'A2' },
-    'word-choice': { label: 'Word choice', focus: null, min: 'A1' },
-    spelling: { label: 'Spelling and capitalisation', focus: null, min: 'A1' },
-    meaning: { label: 'Getting the meaning across', focus: null, min: 'A1' }
+    'verb-position': { label: 'Verb position (2nd in main clauses, last in subclauses)', tr: 'Fiil konumu (ana cümlede 2., yan cümlede sonda)', focus: 'mehrere Haupt- und Nebensätze, in denen das konjugierte Verb deutlich an zweiter Stelle bzw. am Satzende steht; Sätze, die mit einer Zeitangabe beginnen (Heute gehe ich …)', min: 'A1' },
+    conjugation: { label: 'Verb conjugation', tr: 'Fiil çekimi', focus: 'verschiedene Subjekte (ich, du, er/sie, wir, ihr, sie), damit viele unterschiedliche Verbformen vorkommen', min: 'A1' },
+    separable: { label: 'Separable verbs', tr: 'Ayrılabilen fiiller', focus: 'mindestens zwei trennbare Verben (z. B. anrufen, einkaufen, aufstehen), im Hauptsatz getrennt', min: 'A1' },
+    'article-case': { label: 'Articles and cases (nominative/accusative/dative)', tr: 'Artikeller ve haller (yalın/belirtme/yönelme)', focus: 'mehrere Nomen im Akkusativ und Dativ mit deutlich sichtbaren Artikeln (den, dem, einen, einem, der)', min: 'A1' },
+    preposition: { label: 'Prepositions', tr: 'Edatlar', focus: 'häufige Präpositionen mit festem Kasus (mit, zu, bei, für, ohne, aus, in/auf + Akkusativ oder Dativ)', min: 'A1' },
+    perfekt: { label: 'Perfect tense (haben/sein + past participle)', tr: 'Perfekt (haben/sein + Partizip II)', focus: 'Perfekt-Formen mit haben UND mit sein (z. B. ist gefahren, hat gekauft)', min: 'A2' },
+    tense: { label: 'Choice of tense', tr: 'Zaman seçimi', focus: 'einen deutlichen Wechsel zwischen Gegenwart und Vergangenheit mit klaren Zeitsignalen', min: 'A2' },
+    subclause: { label: 'Subordinate clauses (weil, dass, wenn, obwohl …)', tr: 'Yan cümleler (weil, dass, wenn, obwohl …)', focus: 'mehrere Nebensätze mit weil, dass, wenn oder obwohl', min: 'A2' },
+    adjective: { label: 'Adjective endings', tr: 'Sıfat çekim ekleri', focus: 'Adjektive vor Nomen mit unterschiedlichen Endungen (ein großer Tisch, mit dem neuen Auto)', min: 'A2' },
+    'word-choice': { label: 'Word choice', tr: 'Kelime seçimi', focus: null, min: 'A1' },
+    spelling: { label: 'Spelling and capitalisation', tr: 'Yazım ve büyük harf', focus: null, min: 'A1' },
+    meaning: { label: 'Getting the meaning across', tr: 'Anlamı aktarma', focus: null, min: 'A1' }
   };
   const KEYS = Object.keys(TOPICS);
 
   function isTopic(key) { return Object.prototype.hasOwnProperty.call(TOPICS, key); }
-  function label(key) { return isTopic(key) ? TOPICS[key].label : key; }
+  function label(key, lang = 'en') { return isTopic(key) ? (lang === 'tr' ? TOPICS[key].tr : TOPICS[key].label) : key; }
 
   function cleanWeakPoints(list) {
     if (!Array.isArray(list)) return [];

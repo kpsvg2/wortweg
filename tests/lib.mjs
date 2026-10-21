@@ -15,6 +15,12 @@ export function loadThemes() {
   vm.runInContext(readFileSync(join(appDir, 'data', 'vocabulary.js'), 'utf8'), context);
   return context.window.WORTWEG_VOCAB.themes;
 }
+export function loadTurkish() {
+  const context = { window: {} };
+  vm.createContext(context);
+  vm.runInContext(readFileSync(join(appDir, 'data', 'vocabulary.tr.js'), 'utf8'), context);
+  return context.window.WORTWEG_VOCAB_TR;
+}
 export const SessionLib = require(join(appDir, 'js', 'session.js'));
 export const Engine = require(join(appDir, 'js', 'engine.js'));
 export const Mistakes = require(join(appDir, 'js', 'mistakes.js'));

@@ -23,34 +23,34 @@
     <main class="shell">
       <header>
         <div class="brand"><img class="mark" src="icons/icon.svg" alt="" /> Wortweg</div>
-        <div class="header-tools"><span class="pill" id="ai-pill">Wortweg</span><button class="icon-button" id="settings-open" type="button" aria-label="AI settings" title="AI settings" hidden>⚙</button><button class="icon-button" id="theme-toggle" type="button" aria-label="Toggle dark mode"></button></div>
+        <div class="header-tools"><span class="pill" id="ai-pill">Wortweg</span><select class="lang-select" id="lang-select" data-lang-select aria-label="Language" data-i18n-aria="language"><option value="en">EN</option><option value="tr">TR</option></select><button class="icon-button" id="settings-open" type="button" aria-label="AI settings" title="AI settings" data-i18n-aria="aiSettings" data-i18n-title="aiSettings" hidden>⚙</button><button class="icon-button" id="theme-toggle" type="button" aria-label="Toggle dark mode" data-i18n-aria="toggleTheme"></button></div>
       </header>
 
       <section class="view active" id="welcome">
-        <div class="mode-switch" id="mode-switch" role="tablist" aria-label="Study mode">
-          <button type="button" role="tab" data-mode="normal">Normal</button>
-          <button type="button" role="tab" data-mode="articles">Articles</button>
-          <button type="button" role="tab" data-mode="guess">Guess</button>
+        <div class="mode-switch" id="mode-switch" role="tablist" aria-label="Study mode" data-i18n-aria="studyMode">
+          <button type="button" role="tab" data-mode="normal" data-i18n="modeNormal">Normal</button>
+          <button type="button" role="tab" data-mode="articles" data-i18n="modeArticles">Articles</button>
+          <button type="button" role="tab" data-mode="guess" data-i18n="modeGuess">Guess</button>
         </div>
-        <p class="hint voice-hint">Read-aloud is off: this device has no German voice. Install one (Windows: Settings → Time &amp; language → Speech → Add voices → Deutsch) and it turns on automatically.</p>
+        <p class="hint voice-hint" data-i18n="voiceHint">Read-aloud is off: this device has no German voice. Install one (Windows: Settings → Time &amp; language → Speech → Add voices → Deutsch) and it turns on automatically.</p>
         <div class="hero" id="articles-home" hidden>
-          <h1>der, die, das.<br>With nouns <em>you know</em>.</h1>
-          <p class="lead">Every noun you learn in Normal mode is added here automatically. It never runs out: once every noun has been asked, the list is shuffled and starts again.</p>
-          <div class="actions"><button class="button" id="articles-start" disabled>Start article practice</button></div>
-          <p class="hint" id="articles-status">Preparing the list…</p>
+          <h1 data-i18n="articlesHero">der, die, das.<br>With nouns <em>you know</em>.</h1>
+          <p class="lead" data-i18n="articlesLead">Every noun you learn in Normal mode is added here automatically. It never runs out: once every noun has been asked, the list is shuffled and starts again.</p>
+          <div class="actions"><button class="button" id="articles-start" data-i18n="articlesStart" disabled>Start article practice</button></div>
+          <p class="hint" id="articles-status" data-i18n="articlesPreparing">Preparing the list…</p>
         </div>
         <div class="hero" id="guess-home" hidden>
-          <h1>Look at the ending.<br><em>Guess</em> the article.</h1>
-          <p class="lead">Random nouns from the pool; no levels, nothing is saved. After each answer you see the meaning and the article rule for that ending.</p>
-          <div class="actions"><button class="button" id="guess-start">Start guessing</button></div>
+          <h1 data-i18n="guessHero">Look at the ending.<br><em>Guess</em> the article.</h1>
+          <p class="lead" data-i18n="guessLead">Random nouns from the pool; no levels, nothing is saved. After each answer you see the meaning and the article rule for that ending.</p>
+          <div class="actions"><button class="button" id="guess-start" data-i18n="guessStart">Start guessing</button></div>
           <p class="hint" id="guess-status"></p>
         </div>
         <div class="hero" id="normal-home">
-          <h1>See the word.<br>Understand it <em>in context</em>.</h1>
-          <p class="lead">Pick your level; grammar and words follow it. Each session draws words from a different everyday theme, and the text you translate alternates between German and English.</p>
+          <h1 data-i18n="normalHero">See the word.<br>Understand it <em>in context</em>.</h1>
+          <p class="lead" data-i18n="normalLead">Pick your level; grammar and words follow it. Each session draws words from a different everyday theme, and the text you translate alternates between German and English.</p>
           <div class="level-grid" id="levels"></div>
-          <div class="actions"><button class="button" id="start" disabled>Start studying</button></div>
-          <p class="hint" id="pool-status">Preparing the word pool…</p>
+          <div class="actions"><button class="button" id="start" data-i18n="startStudying" disabled>Start studying</button></div>
+          <p class="hint" id="pool-status" data-i18n="poolPreparing">Preparing the word pool…</p>
         </div>
       </section>
 
@@ -58,80 +58,82 @@
         <div class="progress" id="progress"></div>
         <article class="card">
           <div class="eyebrow" id="question-count"></div>
-          <div class="word-row"><div class="word" id="word" lang="de"></div><div class="speak-tools"><button class="speak" id="speak-word" type="button" aria-label="Read aloud" title="Read aloud">🔊</button><label class="speed" title="Reading speed"><input type="range" class="speech-rate" min="0.6" max="1" step="0.05" value="0.9" aria-label="Reading speed" /><output class="speech-rate-value">0.9×</output></label></div></div>
+          <div class="word-row"><div class="word" id="word" lang="de"></div><div class="speak-tools"><button class="speak" id="speak-word" type="button" aria-label="Read aloud" title="Read aloud" data-i18n-aria="readAloud" data-i18n-title="readAloud">🔊</button><label class="speed" title="Reading speed" data-i18n-title="readingSpeed"><input type="range" class="speech-rate" min="0.6" max="1" step="0.05" value="0.9" aria-label="Reading speed" data-i18n-aria="readingSpeed" /><output class="speech-rate-value">0.9×</output></label></div></div>
           <div class="option-list" id="options"></div>
-          <div class="option-list skip-row"><button class="option skip" id="dont-know" type="button"><span class="letter">?</span>I don't know</button></div>
+          <div class="option-list skip-row"><button class="option skip" id="dont-know" type="button"><span class="letter">?</span><span data-i18n="dontKnow">I don't know</span></button></div>
           <div class="feedback" id="feedback" hidden></div>
-          <div class="card-footer"><span class="small" id="status"></span><button class="button" id="next" hidden>Next word</button></div>
+          <div class="card-footer"><span class="small" id="status"></span><button class="button" id="next" data-i18n="nextWord" hidden>Next word</button></div>
         </article>
       </section>
 
       <section class="view" id="articles">
         <article class="card">
           <div class="eyebrow" id="articles-count"></div>
-          <div class="word-row"><div class="word" id="articles-word" lang="de"></div><div class="speak-tools"><button class="speak" id="speak-articles" type="button" aria-label="Read aloud" title="Read aloud">🔊</button><label class="speed" title="Reading speed"><input type="range" class="speech-rate" min="0.6" max="1" step="0.05" value="0.9" aria-label="Reading speed" /><output class="speech-rate-value">0.9×</output></label></div></div>
+          <div class="word-row"><div class="word" id="articles-word" lang="de"></div><div class="speak-tools"><button class="speak" id="speak-articles" type="button" aria-label="Read aloud" title="Read aloud" data-i18n-aria="readAloud" data-i18n-title="readAloud">🔊</button><label class="speed" title="Reading speed" data-i18n-title="readingSpeed"><input type="range" class="speech-rate" min="0.6" max="1" step="0.05" value="0.9" aria-label="Reading speed" data-i18n-aria="readingSpeed" /><output class="speech-rate-value">0.9×</output></label></div></div>
           <p class="word-meaning" id="articles-meaning"></p>
           <div class="option-list artikel-options" id="articles-options"></div>
-          <div class="option-list skip-row"><button class="option skip" id="articles-dont-know" type="button"><span class="letter">?</span>I don't know</button></div>
+          <div class="option-list skip-row"><button class="option skip" id="articles-dont-know" type="button"><span class="letter">?</span><span data-i18n="dontKnow">I don't know</span></button></div>
           <div class="feedback" id="articles-feedback" hidden></div>
-          <div class="card-footer"><button class="button secondary" id="articles-exit" type="button">Back to menu</button><button class="button" id="articles-next" hidden>Next</button></div>
+          <div class="card-footer"><button class="button secondary" id="articles-exit" type="button" data-i18n="backToMenu">Back to menu</button><button class="button" id="articles-next" data-i18n="next" hidden>Next</button></div>
         </article>
       </section>
 
       <section class="view" id="translation">
         <article class="card">
-          <div class="eyebrow">Now for some context</div>
-          <h2 id="translation-title">Translate the short text.</h2>
-          <div class="text-wrap"><p class="text" id="paragraph"></p><button class="speak speak-corner" id="speak-paragraph" type="button" aria-label="Read the text aloud" title="Read the text aloud">🔊</button></div>
+          <div class="eyebrow" data-i18n="contextEyebrow">Now for some context</div>
+          <h2 id="translation-title" data-i18n="translateTitle">Translate the short text.</h2>
+          <div class="text-wrap"><p class="text" id="paragraph"></p><button class="speak speak-corner" id="speak-paragraph" type="button" aria-label="Read the text aloud" title="Read the text aloud" data-i18n-aria="readText" data-i18n-title="readText">🔊</button></div>
           <p class="focus-note" id="lesson-focus" hidden></p>
           <p class="small" id="lesson-source"></p>
-          <label class="small" for="translation-input" id="translation-label">Your translation</label>
+          <label class="small" for="translation-input" id="translation-label" data-i18n="yourTranslation">Your translation</label>
           <textarea id="translation-input"></textarea>
-          <div class="actions"><button class="button" id="check-translation">Check translation</button></div>
+          <div class="actions"><button class="button" id="check-translation" data-i18n="checkTranslation">Check translation</button></div>
         </article>
       </section>
 
       <section class="view" id="result">
         <article class="card">
-          <div class="eyebrow">Session summary</div>
-          <h2>Nice work!</h2>
+          <div class="eyebrow" data-i18n="summaryEyebrow">Session summary</div>
+          <h2 data-i18n="niceWork">Nice work!</h2>
           <div class="result-score" id="score">—</div>
           <p class="lead" id="evaluation"></p>
           <div class="review">
-            <div class="translation-box user"><span class="box-label">Your translation</span><p id="user-translation"></p></div>
-            <div class="translation-box answer"><span class="box-label">Natural translation <button class="speak speak-small" id="speak-answer" type="button" aria-label="Read aloud" title="Read aloud">🔊</button></span><p id="model-translation"></p></div>
+            <div class="translation-box user"><span class="box-label" data-i18n="yourTranslation">Your translation</span><p id="user-translation"></p></div>
+            <div class="translation-box answer"><span class="box-label"><span data-i18n="naturalTranslation">Natural translation</span> <button class="speak speak-small" id="speak-answer" type="button" aria-label="Read aloud" title="Read aloud" data-i18n-aria="readAloud" data-i18n-title="readAloud">🔊</button></span><p id="model-translation"></p></div>
           </div>
-          <div class="eyebrow">What to watch out for</div>
+          <div class="eyebrow" data-i18n="watchOut">What to watch out for</div>
           <ul class="corrections" id="corrections"></ul>
           <p class="focus-note" id="next-focus" hidden></p>
           <p class="small" id="profile-note"></p>
           <div class="summary">
-            <div class="metric"><b id="correct-count">0/0</b><span>Words right</span></div>
-            <div class="metric"><b id="level-label">A1</b><span>Level</span></div>
+            <div class="metric"><b id="correct-count">0/0</b><span data-i18n="wordsRight">Words right</span></div>
+            <div class="metric"><b id="level-label">A1</b><span data-i18n="level">Level</span></div>
           </div>
-          <button class="button" id="restart">New session</button>
+          <button class="button" id="restart" data-i18n="newSession">New session</button>
         </article>
       </section>
       <section class="view" id="settings">
         <article class="card">
-          <div class="eyebrow">Settings</div>
-          <h2>AI provider</h2>
-          <p class="small">Wortweg works offline without AI. With a provider, it writes a new story for every session and reviews your translations. Keys are saved in the <code>.env</code> file on this computer and are never sent to the browser.</p>
+          <div class="eyebrow" data-i18n="settings">Settings</div>
+          <h2 data-i18n="aiProvider">AI provider</h2>
+          <p class="small" data-i18n="settingsIntro">Wortweg works offline without AI. With a provider, it writes a new story for every session and reviews your translations. Keys are saved in the <code>.env</code> file on this computer and are never sent to the browser.</p>
           <form class="form-grid" id="settings-form" autocomplete="off">
-            <label class="field">Provider<select id="set-provider"></select></label>
+            <label class="field"><span data-i18n="provider">Provider</span><select id="set-provider"></select></label>
             <p class="small field-note" id="set-note"></p>
-            <label class="field" id="set-keys-field">API key<input id="set-keys" type="password" spellcheck="false" /><small>Several keys: separate them with commas. They are tried in turn when one hits its rate limit.</small></label>
-            <label class="field" id="set-base-field">Base URL<input id="set-base" type="url" placeholder="https://example.com/v1" spellcheck="false" /></label>
-            <div class="field" id="set-model-field"><label for="set-model">Model</label><div class="field-row"><input id="set-model" list="set-model-list" spellcheck="false" placeholder="Model name" /><button type="button" class="button secondary" id="set-load-models">Load list</button></div><datalist id="set-model-list"></datalist></div>
-            <label class="field" id="set-fallbacks-field">Fallback models<input id="set-fallbacks" spellcheck="false" placeholder="Optional, comma-separated" /><small>Tried in order when the main model is busy or out of quota.</small></label>
+            <label class="field" id="set-keys-field"><span data-i18n="apiKey">API key</span><input id="set-keys" type="password" spellcheck="false" /><small data-i18n="keysHint">Several keys: separate them with commas. They are tried in turn when one hits its rate limit.</small></label>
+            <label class="field" id="set-base-field"><span data-i18n="baseUrl">Base URL</span><input id="set-base" type="url" placeholder="https://example.com/v1" spellcheck="false" /></label>
+            <div class="field" id="set-model-field"><label for="set-model" data-i18n="model">Model</label><div class="field-row"><input id="set-model" list="set-model-list" spellcheck="false" placeholder="Model name" data-i18n-placeholder="modelName" /><button type="button" class="button secondary" id="set-load-models" data-i18n="loadList">Load list</button></div><datalist id="set-model-list"></datalist></div>
+            <label class="field" id="set-fallbacks-field"><span data-i18n="fallbackModels">Fallback models</span><input id="set-fallbacks" spellcheck="false" placeholder="Optional, comma-separated" data-i18n-placeholder="fallbackPlaceholder" /><small data-i18n="fallbackHint">Tried in order when the main model is busy or out of quota.</small></label>
             <div class="feedback" id="settings-feedback" hidden></div>
-            <div class="card-footer"><button type="button" class="button secondary" id="settings-back">Back</button><div class="actions-inline"><button type="button" class="button secondary" id="settings-test">Test connection</button><button type="submit" class="button" id="settings-save">Save</button></div></div>
+            <div class="card-footer"><button type="button" class="button secondary" id="settings-back" data-i18n="back">Back</button><div class="actions-inline"><button type="button" class="button secondary" id="settings-test" data-i18n="testConnection">Test connection</button><button type="submit" class="button" id="settings-save" data-i18n="save">Save</button></div></div>
           </form>
         </article>
       </section>
     </main>
 
     <script src="data/vocabulary.js"></script>
+    <script src="data/vocabulary.tr.js"></script>
+    <script src="js/i18n.js"></script>
     <script src="js/engine.js"></script>
     <script src="js/session.js"></script>
     <script src="js/validate.js"></script>

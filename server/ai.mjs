@@ -49,7 +49,10 @@ const REVIEW_SCHEMA = {
   required: ['score', 'evaluation', 'corrections', 'weakPoints']
 };
 
-const TEACHER = 'You are a meticulous teacher of German for English speakers.';
+// The learner's language (UI language): meanings, translations and feedback are written in it.
+const LANGUAGES = { en: { name: 'English', stems: '"get up", "alarm"' }, tr: { name: 'Turkish', stems: '"kalk", "çalar"' } };
+const languageOf = (input) => LANGUAGES[input.lang] || LANGUAGES.en;
+const teacher = (L) => `You are a meticulous teacher of German for ${L.name} speakers.`;
 const TOPIC_GUIDE = Mistakes.KEYS.map(key => `${key} = ${Mistakes.TOPICS[key].label}`).join('; ');
 function weakPointsRule(direction) {
   const what = direction === 'en-de'
@@ -57,7 +60,7 @@ function weakPointsRule(direction) {
     : 'the German structures the student misunderstood (e.g. tense if they got the time wrong, subclause if they mixed up a subordinate clause, separable if they missed a separable verb; meaning if it is not about a structure)';
   return ` weakPoints: tag ${what} with one of these topic keys: ${TOPIC_GUIDE}. One item per real mistake; example = a short "wrong → right" example. Return an empty array if there are no mistakes; do not count style differences or correct solutions that differ from the reference.`;
 }
-const REVIEW_EXAMPLE = '{"score":"8/10","evaluation":"short explanation in English","corrections":["a concrete mistake by the student and its correction"],"weakPoints":[{"topic":"perfekt","example":"ich habe gefahren → ich bin gefahren"}]}';
+const reviewExample = (L) => `{"score":"8/10","evaluation":"short explanation in ${L.name}","corrections":["a concrete mistake by the student and its correction"],"weakPoints":[{"topic":"perfekt","example":"ich habe gefahren → ich bin gefahren"}]}`;
 function articleBlock(input) {
   const nouns = (Array.isArray(input.artikelNouns) ? input.artikelNouns : [])
     .filter(noun => noun && /^(der|die|das) \S/.test(String(noun.de || '')))
@@ -75,6 +78,8 @@ function focusBlock(input) {
 const LEVEL_GRAMMAR = 'A1: present tense and main clauses; A2: Perfekt, weil/dass; B1: subordinate clauses, Präteritum, zu + infinitive; B2: Konjunktiv II, passive, nominal style';
 
 export function promptFor(input, context = {}) {
+  const L = languageOf(input);
+  const TEACHER = teacher(L);
   if (input.action === 'generate_lesson') {
     const avoid = (input.avoidWords || []).slice(0, 60).join(', ') || 'none';
     const words = Array.isArray(input.words) && input.words.length
@@ -87,17 +92,17 @@ export function promptFor(input, context = {}) {
       : '';
     return `${TEACHER} Grammar level: ${input.level} (${input.grammarFocus || ''}). Theme: ${input.theme || 'everyday life'}.
 The words the student will practise in this session have already been chosen for their level: ${words}. The other words in the text must not go above ${input.level} either.
-1) Put these 5 words into the questions array in the same order (keep the de field exactly as given); for each, give a natural English meaning (en) and 3 English distractors (wrong) of the same part of speech that are NOT close in meaning.
-2) Write a realistic German text of 5-7 sentences on the theme that uses ALL 5 words (lesson.de). lesson.de must be entirely German; not a single English word may slip in. Only the grammar changes with the level (${LEVEL_GRAMMAR}).
+1) Put these 5 words into the questions array in the same order (keep the de field exactly as given); for each, give a natural ${L.name} meaning (en) and 3 ${L.name} distractors (wrong) of the same part of speech that are NOT close in meaning.
+2) Write a realistic German text of 5-7 sentences on the theme that uses ALL 5 words (lesson.de). lesson.de must be entirely German; not a single ${L.name} or English word may slip in. Only the grammar changes with the level (${LEVEL_GRAMMAR}).
 Scene for this lesson (build the text around it, avoid stock phrases): narrator/main character: ${v.narrator}; time: ${v.moment}; event: ${v.twist}; form: ${v.form}.
 Do not additionally use these words in the text: ${avoid}.${focusBlock(input)}${articleBlock(input)}${recentBlock}
-3) lesson.en: a natural English translation of the text. lesson.checks: one item per target word; words = English word starts that must appear in the student's translation (lower case, e.g. "get up", "alarm"), note = a short English note on the word's meaning in the text and the grammar point to watch.
+3) lesson.en: a natural ${L.name} translation of the text. lesson.checks: one item per target word; words = ${L.name} word starts that must appear in the student's translation (lower case, e.g. ${L.stems}), note = a short ${L.name} note on the word's meaning in the text and the grammar point to watch.
 Return JSON only: {"questions":[{"de":"","en":"","wrong":["","",""]}],"lesson":{"de":"","en":"","checks":[{"words":[""],"note":""}]}}`;
   }
   if (input.direction === 'en-de') {
-    return `${TEACHER} Level: ${input.level}. The student translated an English text INTO GERMAN. Original English: ${input.sourceText}. Reference German: ${input.referenceTranslation}. Student's German translation: ${input.studentTranslation}. Judge whether the meaning came across and check the German grammar (verb form and position, articles and cases, word choice, spelling, capitalisation); accept correct solutions that differ from the reference. Give feedback in English; in corrections, show the student's wrong German phrase and the correct one.${weakPointsRule('en-de')} Return only this JSON shape: ${REVIEW_EXAMPLE}.`;
+    return `${TEACHER} Level: ${input.level}. The student translated a ${L.name} text INTO GERMAN. Original ${L.name}: ${input.sourceText}. Reference German: ${input.referenceTranslation}. Student's German translation: ${input.studentTranslation}. Judge whether the meaning came across and check the German grammar (verb form and position, articles and cases, word choice, spelling, capitalisation); accept correct solutions that differ from the reference. Give all feedback (evaluation, corrections) in ${L.name}; in corrections, show the student's wrong German phrase and the correct one.${weakPointsRule('en-de')} Return only this JSON shape: ${reviewExample(L)}.`;
   }
-  return `${TEACHER} Level: ${input.level}. Original German: ${input.sourceText}. Reference English: ${input.referenceTranslation}. Student's translation: ${input.studentTranslation}. Give constructive, meaning-focused feedback in English.${weakPointsRule('de-en')} Return only this JSON shape: ${REVIEW_EXAMPLE}.`;
+  return `${TEACHER} Level: ${input.level}. Original German: ${input.sourceText}. Reference ${L.name}: ${input.referenceTranslation}. Student's ${L.name} translation: ${input.studentTranslation}. Give constructive, meaning-focused feedback in ${L.name}.${weakPointsRule('de-en')} Return only this JSON shape: ${reviewExample(L)}.`;
 }
 
 function validateLesson(result, input) {
@@ -111,6 +116,7 @@ function validateLesson(result, input) {
   }
   const english = findEnglish(result.lesson.de);
   if (english.length) throw new AiError(`English leaked into the German text: ${english.slice(0, 4).join(', ')}`, 422, true);
+  if (/[ışğİŞĞ]/.test(result.lesson.de)) throw new AiError('Turkish leaked into the German text.', 422, true);
   return result;
 }
 

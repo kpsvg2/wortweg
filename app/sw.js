@@ -1,8 +1,8 @@
 // Network-first service worker: always fresh when online, cached copy when offline.
-const CACHE = 'wortweg-v12';
+const CACHE = 'wortweg-v13';
 const ASSETS = [
   './', './index.html', './ai-config.js', './manifest.webmanifest', './css/app.css',
-  './data/vocabulary.js', './js/app.js', './js/engine.js', './js/session.js', './js/validate.js', './js/mistakes.js', './js/articles.js',
+  './data/vocabulary.js', './data/vocabulary.tr.js', './js/i18n.js', './js/app.js', './js/engine.js', './js/session.js', './js/validate.js', './js/mistakes.js', './js/articles.js',
   './icons/icon.svg', './icons/icon-192.png', './icons/icon-512.png'
 ];
 

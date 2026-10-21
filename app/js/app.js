@@ -1,18 +1,15 @@
 // Wortweg UI: welcome screen, word quiz, translation step, review, and the article modes.
-const VOCAB = window.WORTWEG_VOCAB || { themes: [] };
+const I18n = window.WortwegI18n;
+const { t, lang: LANG } = I18n;
+const VOCAB = I18n.localizeVocab(window.WORTWEG_VOCAB || { themes: [] });
 const Engine = window.WortwegEngine;
 const SessionLib = window.WortwegSession;
 const Validate = window.WortwegValidate;
 const Mistakes = window.WortwegMistakes;
 const Articles = window.WortwegArticles;
 const LEVELS = ['A1', 'A2', 'B1', 'B2'];
-const grammarFocus = {
-  A1: 'Present tense, short main clauses, dann / und.',
-  A2: 'Perfekt, zuerst / danach, dass clauses.',
-  B1: 'nachdem / obwohl / weil clauses, zu + infinitive, Plusquamperfekt.',
-  B2: 'Konjunktiv II (hätte … gehabt), da / obwohl, nominal and evaluative phrasing.'
-};
-const labels = { A1: 'Beginner', A2: 'Elementary', B1: 'Intermediate', B2: 'Upper intermediate' };
+const grammarFocus = t('grammarFocus');
+const labels = t('levelLabels');
 const state = { level: null, index: 0, correct: 0, answered: false, answers: [], words: [], questions: [], lesson: null, focus: [], artikelNouns: [], profile: null, theme: null, source: null, direction: 'de-en', prefetch: null };
 const $ = (id) => document.getElementById(id);
 const escapeHtml = (text) => String(text).replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
@@ -25,7 +22,7 @@ const levelOf = (word) => (LEVELS.includes(word?.level) ? word.level : 'B2');
 function applyTheme(theme) {
   document.documentElement.dataset.theme = theme;
   $('theme-toggle').textContent = theme === 'dark' ? '☀' : '☾';
-  $('theme-toggle').title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+  $('theme-toggle').title = theme === 'dark' ? t('toLight') : t('toDark');
   document.querySelector('meta[name="theme-color"]').content = theme === 'dark' ? '#0f141c' : '#275df5';
 }
 function setupTheme() {
@@ -59,11 +56,12 @@ const EXPAND_BELOW = 12;
 const EXPAND_COUNT = 6;
 const expandingThemes = new Set();
 const exhaustedThemes = new Set();
+const localized = (words) => (Array.isArray(words) ? words.map(I18n.localizeWord).filter(Boolean) : []);
 async function loadExtraVocab() {
   if (!state.profile?.path) return;
   try {
     const data = await (await fetch('/api/vocab', { cache: 'no-store' })).json();
-    Object.entries(data.themes || {}).forEach(([themeId, words]) => { Session.addWords(themeId, words); });
+    Object.entries(data.themes || {}).forEach(([themeId, words]) => { Session.addWords(themeId, localized(words)); });
   } catch (error) {}
 }
 async function maybeExpandVocab(theme) {
@@ -74,7 +72,7 @@ async function maybeExpandVocab(theme) {
   try {
     const response = await fetch('/api/vocab/expand', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ themeId: theme.id, level, count: EXPAND_COUNT }) });
     const data = await response.json();
-    if (response.ok) Session.addWords(theme.id, data.words);
+    if (response.ok) Session.addWords(theme.id, localized(data.words));
     if (response.ok && data.exhausted) exhaustedThemes.add(`${theme.id}:${level}`);
   } catch (error) {}
   finally { expandingThemes.delete(theme.id); }
@@ -122,8 +120,8 @@ function profileSummaryNote() {
   const unknown = words.filter(entry => (entry.status || statusFromStrength(entry.strength ?? 0)) === 'unknown').length;
   const known = words.filter(entry => (entry.status || statusFromStrength(entry.strength ?? 0)) === 'known').length;
   const seen = words.filter(entry => entry.seen).length;
-  const where = state.profile?.path ? `Profile: ${state.profile.path} (delete the folder to reset).` : 'Progress is stored in this browser.';
-  return `So far you have seen ${seen}/${vocabPool.length} words · ${known} known · ${unknown} to review. ${where}`;
+  const where = state.profile?.path ? t('profileWhere', state.profile.path) : t('profileBrowser');
+  return t('profileSummary', seen, vocabPool.length, known, unknown, where);
 }
 
 // Read-aloud with the best available German voice; hidden entirely if there is none.
@@ -201,9 +199,7 @@ function renderArticlesHome() {
   if (!articles.ready) return;
   const count = Articles.deckWords(progressData(), Session.vocabByWord).length;
   $('articles-start').disabled = !count;
-  $('articles-status').textContent = count
-    ? `${count} nouns in your list.`
-    : 'No known nouns yet. Once you get a noun right a few times in Normal mode, it is added here.';
+  $('articles-status').textContent = count ? t('articlesCount', count) : t('articlesEmpty');
 }
 function setMode(mode, { remember = true } = {}) {
   if (mode !== 'articles' && mode !== 'guess') mode = 'normal';
@@ -216,7 +212,7 @@ function setMode(mode, { remember = true } = {}) {
   $('articles-home').hidden = mode !== 'articles';
   $('guess-home').hidden = mode !== 'guess';
   if (mode === 'articles') renderArticlesHome();
-  if (mode === 'guess') $('guess-status').textContent = `${guessWords().length} nouns in the pool.`;
+  if (mode === 'guess') $('guess-status').textContent = t('guessCount', guessWords().length);
   if (remember) { try { localStorage.setItem(MODE_KEY, mode); } catch (error) {} }
 }
 function setupModes() {
@@ -245,7 +241,7 @@ function startGuess() {
   nextArticle();
 }
 function renderArticlesScore() {
-  $('articles-count').textContent = `${articles.guess ? 'GUESS' : 'ARTICLES'} · ${articles.right} RIGHT · ${articles.wrong} WRONG`;
+  $('articles-count').textContent = t('articlesScore', articles.guess, articles.right, articles.wrong);
 }
 function nextArticle() {
   Speech.stop();
@@ -280,7 +276,7 @@ function answerArticle(button) {
   if (skipped) button.classList.add('chosen');
   else if (!isCorrect) button.classList.add('wrong');
   $('articles-feedback').hidden = false;
-  $('articles-feedback').innerHTML = `${isCorrect ? 'Correct!' : 'Answer:'} <b lang="de">${escapeHtml(form.w)}</b> — ${escapeHtml(form.m)}${form.pluralOnly ? '<br><small>This noun is only used in the plural; plural nouns always take “die”.</small>' : ''}${articles.guess ? `<br><small>${escapeHtml(Articles.ruleNote(form.noun, article))}</small>` : ''}`;
+  $('articles-feedback').innerHTML = `${isCorrect ? t('correct') : t('answerIs')} <b lang="de">${escapeHtml(form.w)}</b> — ${escapeHtml(form.m)}${form.pluralOnly ? `<br><small>${t('pluralOnly')}</small>` : ''}${articles.guess ? `<br><small>${escapeHtml(Articles.ruleNote(form.noun, article, LANG))}</small>` : ''}`;
   $('articles-next').hidden = false;
   renderArticlesScore();
   if (!articles.guess) saveProfile();
@@ -304,8 +300,8 @@ function setupLevels() {
 }
 function renderPoolStatus() {
   const seen = Object.values(progressData().words).filter(entry => entry.seen).length;
-  const atLevel = state.level ? ` ${Session.levelCount(state.level)} of them are up to ${state.level}.` : '';
-  $('pool-status').textContent = `Word pool ready: ${VOCAB.themes.length} themes, ${vocabPool.length} words.${atLevel} You have seen ${seen} so far.`;
+  const atLevel = state.level ? t('poolAtLevel', Session.levelCount(state.level), state.level) : '';
+  $('pool-status').textContent = t('poolStatus', VOCAB.themes.length, vocabPool.length, atLevel, seen);
 }
 function isLesson(value) {
   return value && Array.isArray(value.questions) && value.questions.length >= 5 && value.lesson && value.lesson.de && value.lesson.en;
@@ -322,8 +318,8 @@ async function buildSession(level) {
   const session = {
     level, theme, words, focus: [], artikelNouns: [],
     questions: words.map(toQuestion),
-    lesson: Engine.buildLesson(level, theme, words, grammarFocus[level]),
-    source: { kind: 'offline', detail: 'AI not connected; using the offline template.' },
+    lesson: Engine.buildLesson(level, theme, words, grammarFocus[level], LANG),
+    source: { kind: 'offline', detail: t('sourceOffline') },
     createdAt: Date.now()
   };
   const endpoint = window.WORTWEG_AI_ENDPOINT;
@@ -333,6 +329,7 @@ async function buildSession(level) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'generate_lesson',
+        lang: LANG,
         level,
         grammarFocus: grammarFocus[level],
         theme: theme.name,
@@ -354,12 +351,12 @@ async function buildSession(level) {
       session.focus = focus;
       session.artikelNouns = artikelNouns.filter(form => Validate.containsWord(session.lesson.de, form.w)).map(form => form.w);
       const meta = generated._meta || {};
-      session.source = { kind: 'ai', detail: `Text generated by AI (${meta.model || 'model'}${meta.ms ? ', ' + (meta.ms / 1000).toFixed(1) + ' s' : ''}).` };
+      session.source = { kind: 'ai', detail: t('sourceAi', meta.model || 'model', meta.ms ? (meta.ms / 1000).toFixed(1) : '') };
     } else {
-      session.source = { kind: 'fallback', detail: `AI response unusable (${generated?.error || 'invalid response'}); using the offline template.` };
+      session.source = { kind: 'fallback', detail: t('sourceUnusable', generated?.error || t('invalidResponse')) };
     }
   } catch (error) {
-    session.source = { kind: 'fallback', detail: `Could not reach the AI (${error.message}); using the offline template.` };
+    session.source = { kind: 'fallback', detail: t('sourceUnreachable', error.message) };
   }
   return session;
 }
@@ -395,9 +392,9 @@ function renderQuestion() {
   Speech.stop();
   const word = state.questions[state.index];
   $('progress').innerHTML = state.questions.map((_, i) => `<span class="${i <= state.index ? 'on' : ''}"></span>`).join('');
-  $('question-count').textContent = `WORD ${state.index + 1} / ${state.questions.length} · THEME: ${(state.theme?.name || '').toUpperCase()}`;
+  $('question-count').textContent = t('questionCount', state.index + 1, state.questions.length, (state.theme?.name || '').toLocaleUpperCase(LANG));
   $('word').textContent = word.de;
-  $('status').textContent = 'Pick the option that best matches the meaning.';
+  $('status').textContent = t('pickHint');
   const options = shuffled([word.en, ...(word.wrong || []).slice(0, 3)]);
   $('options').innerHTML = options.map((option, i) => `<button class="option" data-index="${i}"><span class="letter">${'ABCD'[i]}</span>${escapeHtml(option)}</button>`).join('');
   $('options').querySelectorAll('.option').forEach(button => { button.dataset.answer = options[Number(button.dataset.index)]; button.addEventListener('click', () => answer(button)); });
@@ -421,61 +418,58 @@ function answer(button) {
   if (skipped) button.classList.add('chosen');
   else if (!isCorrect) button.classList.add('wrong');
   $('feedback').hidden = false;
-  const head = isCorrect ? `Correct! “${word.de}” = “${word.en}”.` : skipped ? `No problem, this word will come back. “${word.de}” = “${right}”.` : `The right answer: “${right}”.`;
-  const example = word.example ? `<br><small>Example: <b lang="de">${escapeHtml(word.example.de)}</b> — ${escapeHtml(word.example.en)}</small>` : '';
+  const head = isCorrect ? t('feedbackCorrect', word.de, word.en) : skipped ? t('feedbackSkipped', word.de, right) : t('feedbackWrong', right);
+  const example = word.example ? `<br><small>${t('example')} <b lang="de">${escapeHtml(word.example.de)}</b> — ${escapeHtml(word.example.en)}</small>` : '';
   $('feedback').innerHTML = escapeHtml(head) + example;
   $('next').hidden = false;
-  $('next').textContent = state.index === state.questions.length - 1 ? 'On to the text' : 'Next word';
+  $('next').textContent = state.index === state.questions.length - 1 ? t('toText') : t('nextWord');
 }
+const topicLabel = (key) => Mistakes.label(key, LANG);
 function finishQuiz() {
   const reverse = state.direction === 'en-de';
-  $('translation-title').textContent = reverse ? 'Translate the short text into German.' : 'Translate the short text into English.';
+  $('translation-title').textContent = reverse ? t('titleToGerman') : t('titleFromGerman');
   $('paragraph').textContent = reverse ? state.lesson.en : state.lesson.de;
-  $('paragraph').lang = reverse ? 'en' : 'de';
+  $('paragraph').lang = reverse ? LANG : 'de';
   $('speak-paragraph').hidden = reverse;
-  $('translation-label').textContent = reverse ? 'Your German translation' : 'Your English translation';
-  $('translation-input').placeholder = reverse ? 'Zum Beispiel: Heute stehe ich früh auf…' : 'For example: Today I get up early…';
-  $('translation-input').lang = reverse ? 'de' : 'en';
+  $('translation-label').textContent = reverse ? t('labelToGerman') : t('labelFromGerman');
+  $('translation-input').placeholder = reverse ? 'Zum Beispiel: Heute stehe ich früh auf…' : t('placeholderFromGerman');
+  $('translation-input').lang = reverse ? 'de' : LANG;
   $('lesson-source').textContent = state.source?.detail || '';
   $('lesson-source').style.color = state.source?.kind === 'fallback' ? 'var(--red)' : '';
   const focusNotes = [];
-  if (state.focus.length) focusNotes.push(`This text focuses on topics you found hard in recent translations: ${state.focus.map(Mistakes.label).join(', ')}.`);
-  if (state.artikelNouns.length) focusNotes.push(`It also uses nouns whose article you mix up: ${state.artikelNouns.join(', ')}.`);
+  if (state.focus.length) focusNotes.push(t('focusTopics', state.focus.map(topicLabel).join(', ')));
+  if (state.artikelNouns.length) focusNotes.push(t('focusArticles', state.artikelNouns.join(', ')));
   $('lesson-focus').hidden = !focusNotes.length;
   $('lesson-focus').textContent = focusNotes.join(' ');
   show('translation');
 }
 async function loadAiStatus() {
   const pill = $('ai-pill');
-  if (!window.WORTWEG_AI_ENDPOINT) { pill.textContent = 'offline mode'; pill.classList.add('ai-off'); return; }
+  if (!window.WORTWEG_AI_ENDPOINT) { pill.textContent = t('offlineMode'); pill.classList.add('ai-off'); return; }
   try {
     const status = await (await fetch(window.WORTWEG_AI_ENDPOINT + '/status')).json();
     pill.textContent = `AI · ${status.model || status.provider}`;
     pill.classList.add('ai-on');
-  } catch (error) { pill.textContent = 'AI · status unavailable'; pill.classList.add('ai-off'); }
+  } catch (error) { pill.textContent = t('aiStatusUnavailable'); pill.classList.add('ai-off'); }
 }
 // Offline review: checks that each target word shows up in the translation.
 function demoReview(text) {
   const tooShort = text.length < 12;
   const missed = state.direction === 'en-de'
-    ? state.words.filter(word => !Validate.containsWord(text, word.w, word)).map(word => `“${word.w}” (${word.m}) does not appear in your translation. Example: ${Engine.example(word).de}`)
+    ? state.words.filter(word => !Validate.containsWord(text, word.w, word)).map(word => t('missingWord', word.w, word.m, Engine.example(word).de))
     : state.lesson.checks.filter(check => !Engine.mentions(text, check.words || [])).map(check => check.note);
   return {
     score: tooShort ? '—' : `${Math.max(4, 10 - missed.length)}/10`,
-    evaluation: tooShort
-      ? 'Your translation is very short; you can still compare it with the sample translation and the key structures below.'
-      : missed.length
-        ? `We found ${missed.length} point${missed.length > 1 ? 's' : ''} to work on in your translation. See below how to fix them.`
-        : 'The key meanings look right. Compare your phrasing with the sample below.',
-    corrections: missed.length ? missed : [`All target words appear in your translation. Grammar focus: ${grammarFocus[state.level]}`]
+    evaluation: tooShort ? t('tooShort') : missed.length ? t('pointsToWork', missed.length) : t('looksRight'),
+    corrections: missed.length ? missed : [t('allWordsFound', grammarFocus[state.level])]
   };
 }
 function nextFocusNote(found) {
   const next = Mistakes.focusTopics(progressData(), state.level);
   if (!found.length && !next.length) return '';
   const parts = [];
-  if (found.length) parts.push(`Topics you struggled with in this translation: ${found.map(Mistakes.label).join(', ')}.`);
-  if (next.length) parts.push(`Upcoming texts will focus on: ${next.map(Mistakes.label).join(', ')}.`);
+  if (found.length) parts.push(t('struggled', found.map(topicLabel).join(', ')));
+  if (next.length) parts.push(t('upcoming', next.map(topicLabel).join(', ')));
   return parts.join(' ');
 }
 async function renderReview(text, review) {
@@ -489,9 +483,9 @@ async function renderReview(text, review) {
   $('score').textContent = review.score;
   $('correct-count').textContent = `${state.correct}/${state.questions.length}`;
   $('level-label').textContent = state.level;
-  $('user-translation').textContent = text || 'No translation written yet.';
+  $('user-translation').textContent = text || t('noTranslation');
   $('model-translation').textContent = state.direction === 'en-de' ? state.lesson.de : state.lesson.en;
-  $('model-translation').lang = state.direction === 'en-de' ? 'de' : 'en';
+  $('model-translation').lang = state.direction === 'en-de' ? 'de' : LANG;
   $('speak-answer').hidden = state.direction !== 'en-de';
   $('corrections').innerHTML = review.corrections.map(note => `<li>${escapeHtml(note)}</li>`).join('');
   $('evaluation').textContent = review.evaluation;
@@ -506,10 +500,11 @@ async function evaluate() {
   const endpoint = window.WORTWEG_AI_ENDPOINT;
   if (endpoint && text) {
     const button = $('check-translation');
-    button.disabled = true; button.textContent = 'Checking…';
+    button.disabled = true; button.textContent = t('checking');
     try {
       const response = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         action: 'review_translation',
+        lang: LANG,
         direction: state.direction,
         level: state.level,
         sourceText: reverse ? state.lesson.en : state.lesson.de,
@@ -518,20 +513,20 @@ async function evaluate() {
       }) });
       const generated = await response.json();
       if (response.ok && generated.score && generated.evaluation && Array.isArray(generated.corrections)) review = generated;
-      else review.evaluation += ` (AI review unavailable: ${generated?.error || 'invalid response'}; showing the offline check.)`;
-    } catch (error) { review.evaluation += ` (Could not reach the AI: ${error.message}; showing the offline check.)`; }
-    finally { button.disabled = false; button.textContent = 'Check translation'; }
+      else review.evaluation += t('reviewUnavailable', generated?.error || t('invalidResponse'));
+    } catch (error) { review.evaluation += t('reviewUnreachable', error.message); }
+    finally { button.disabled = false; button.textContent = t('checkTranslation'); }
   }
   await renderReview(text, review);
 }
 
 $('start').addEventListener('click', async () => {
-  const button = $('start'); button.disabled = true; button.textContent = 'Preparing session…';
+  const button = $('start'); button.disabled = true; button.textContent = t('preparing');
   state.index = 0; state.correct = 0; state.answers = [];
   let ready = false;
   try { await activateSession(await takeSession(state.level)); ready = true; }
-  catch (error) { $('pool-status').textContent = 'Something went wrong while preparing the session; please try again.'; }
-  finally { button.disabled = false; button.textContent = 'Start studying'; }
+  catch (error) { $('pool-status').textContent = t('sessionFailed'); }
+  finally { button.disabled = false; button.textContent = t('startStudying'); }
   if (ready && state.questions.length) { $('translation-input').value = ''; show('quiz'); renderQuestion(); }
 });
 $('next').addEventListener('click', () => { if (state.index === state.questions.length - 1) finishQuiz(); else { state.index++; renderQuestion(); } });
@@ -558,7 +553,7 @@ function settingsMessage(text, kind = '') {
   const box = $('settings-feedback');
   box.hidden = !text;
   box.className = `feedback ${kind}`;
-  box.textContent = text || '';
+  box.textContent = text ? I18n.serverText(text) : '';
 }
 async function settingsRequest(path, method, body) {
   const response = await fetch(path, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
@@ -577,24 +572,24 @@ function fillProviderFields(id, { useCurrent = false } = {}) {
   $('set-model-field').hidden = !provider;
   $('set-fallbacks-field').hidden = !provider;
   $('settings-test').hidden = !provider;
-  const link = provider?.keyUrl ? ` <a href="${escapeHtml(provider.keyUrl)}" target="_blank" rel="noopener">Get an API key ↗</a>` : '';
-  $('set-note').innerHTML = provider ? `${escapeHtml(provider.note || '')}${link}` : 'Offline mode: stories come from built-in templates and translations get a simple word check.';
+  const link = provider?.keyUrl ? ` <a href="${escapeHtml(provider.keyUrl)}" target="_blank" rel="noopener">${t('getKey')}</a>` : '';
+  $('set-note').innerHTML = provider ? `${escapeHtml(I18n.serverText(provider.note) || '')}${link}` : t('offlineNote');
   if (!provider) return;
   const same = useCurrent && current.provider === id;
   $('set-model').value = same ? current.model : provider.model;
   $('set-fallbacks').value = same ? current.fallbacks : provider.fallbacks;
   $('set-base').value = same ? current.baseUrl : provider.baseUrl;
   $('set-keys').value = '';
-  $('set-keys').placeholder = provider.keys.length ? `Saved: ${provider.keys.join(', ')} · leave empty to keep` : 'Paste your key';
+  $('set-keys').placeholder = provider.keys.length ? t('savedKeys', provider.keys.join(', ')) : t('pasteKey');
   $('set-model-list').innerHTML = '';
 }
 async function openSettings() {
   try { settings.data = await settingsRequest('/api/settings', 'GET'); }
-  catch (error) { alert(error.message); return; }
-  $('set-provider').innerHTML = '<option value="none">Off (offline mode)</option>' + settings.data.providers.map(provider => `<option value="${provider.id}">${escapeHtml(provider.label)}</option>`).join('');
+  catch (error) { alert(I18n.serverText(error.message)); return; }
+  $('set-provider').innerHTML = `<option value="none">${t('providerOff')}</option>` + settings.data.providers.map(provider => `<option value="${provider.id}">${escapeHtml(provider.label)}</option>`).join('');
   $('set-provider').value = providerInfo(settings.data.current.provider) ? settings.data.current.provider : 'none';
   fillProviderFields($('set-provider').value, { useCurrent: true });
-  settingsMessage(!settings.data.configured && settings.data.problem ? `AI is not active yet: ${settings.data.problem}.` : '', 'bad');
+  settingsMessage(!settings.data.configured && settings.data.problem ? t('notActiveYet', I18n.serverText(settings.data.problem)) : '', 'bad');
   show('settings');
 }
 async function busy(button, label, task) {
@@ -606,22 +601,22 @@ async function busy(button, label, task) {
 $('settings-open').addEventListener('click', openSettings);
 $('settings-back').addEventListener('click', () => { renderPoolStatus(); show('welcome'); });
 $('set-provider').addEventListener('change', () => { fillProviderFields($('set-provider').value); settingsMessage(''); });
-$('set-load-models').addEventListener('click', () => busy($('set-load-models'), 'Loading…', async () => {
+$('set-load-models').addEventListener('click', () => busy($('set-load-models'), t('loading'), async () => {
   const { models } = await settingsRequest('/api/settings/models', 'POST', settingsForm());
   $('set-model-list').innerHTML = models.map(model => `<option value="${escapeHtml(model)}"></option>`).join('');
-  settingsMessage(models.length ? `${models.length} models available. Click the model field to pick one.` : 'The provider returned no models.', models.length ? 'ok' : 'bad');
+  settingsMessage(models.length ? t('modelsAvailable', models.length) : t('noModels'), models.length ? 'ok' : 'bad');
 }));
-$('settings-test').addEventListener('click', () => busy($('settings-test'), 'Testing…', async () => {
+$('settings-test').addEventListener('click', () => busy($('settings-test'), t('testing'), async () => {
   const { model, results } = await settingsRequest('/api/settings/test', 'POST', settingsForm());
   const failed = results.filter(result => !result.ok);
   const slowest = Math.max(...results.map(result => result.ms || 0));
   settingsMessage(failed.length
-    ? failed.map(result => `${results.length > 1 ? `Key ${result.key}: ` : ''}${result.error}`).join('\n')
-    : `It works: ${model} answered${results.length > 1 ? ` with all ${results.length} keys` : ''} in ${(slowest / 1000).toFixed(1)} s. Don't forget to save.`, failed.length ? 'bad' : 'ok');
+    ? failed.map(result => `${results.length > 1 ? t('keyLabel', result.key) : ''}${result.error}`).join('\n')
+    : t('itWorks', model, results.length, (slowest / 1000).toFixed(1)), failed.length ? 'bad' : 'ok');
 }));
 $('settings-form').addEventListener('submit', (event) => {
   event.preventDefault();
-  busy($('settings-save'), 'Saving…', async () => {
+  busy($('settings-save'), t('saving'), async () => {
     settings.data = await settingsRequest('/api/settings', 'PUT', settingsForm());
     window.WORTWEG_AI_ENDPOINT = settings.data.configured ? '/api/ai' : '';
     state.prefetch = null;
@@ -629,8 +624,8 @@ $('settings-form').addEventListener('submit', (event) => {
     loadAiStatus();
     fillProviderFields($('set-provider').value, { useCurrent: true });
     const { current } = settings.data;
-    settingsMessage(settings.data.configured ? `Saved. AI is on: ${providerInfo(current.provider).label} · ${current.model}.`
-      : current.provider === 'none' ? 'Saved. Wortweg runs in offline mode.' : `Saved, but AI is not active: ${settings.data.problem}.`, settings.data.configured || current.provider === 'none' ? 'ok' : 'bad');
+    settingsMessage(settings.data.configured ? t('savedOn', providerInfo(current.provider).label, current.model)
+      : current.provider === 'none' ? t('savedOffline') : t('savedInactive', I18n.serverText(settings.data.problem)), settings.data.configured || current.provider === 'none' ? 'ok' : 'bad');
   });
 });
 
@@ -646,7 +641,7 @@ function startHeartbeat() {
     } catch (error) {
       down = true;
       const pill = $('ai-pill');
-      pill.textContent = 'server stopped · reopen Wortweg';
+      pill.textContent = t('serverStopped');
       pill.className = 'pill ai-off';
     }
   };
@@ -654,6 +649,7 @@ function startHeartbeat() {
   document.addEventListener('visibilitychange', () => { if (!document.hidden) ping(); });
 }
 
+I18n.applyPage(document);
 setupTheme();
 setupLevels();
 setupModes();

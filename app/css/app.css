@@ -96,6 +96,8 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .icon-button[hidden] { display: none; }
 .icon-button { appearance: none; width: 34px; height: 34px; border-radius: 100px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font-size: 1rem; cursor: pointer; display: grid; place-items: center; }
 .icon-button:hover { border-color: var(--blue); }
+.lang-select { appearance: none; height: 34px; padding: 0 12px; border-radius: 100px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); font: inherit; font-size: .78rem; font-weight: 700; cursor: pointer; }
+.lang-select:hover { border-color: var(--blue); }
 .view { display: none; }
 .view.active { display: block; }
 .hero { max-width: 650px; margin: 3.5rem 0; }

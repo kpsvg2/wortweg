@@ -89,7 +89,22 @@
     return problems;
   }
 
-  const api = { wordStems, containsWord, entryForms, validateEntry, SEP_PREFIXES };
+  // Turkish fields of an entry (built-in overlay or word.tr on AI words): same shape as the English ones.
+  function validateTurkish(word, tr, Engine) {
+    const problems = [];
+    if (!tr || typeof tr !== 'object') return ['missing Turkish fields (tr)'];
+    for (const field of ['m', 't', 'tp']) if (!tr[field] || typeof tr[field] !== 'string') problems.push(`missing Turkish field: ${field}`);
+    if (problems.length) return problems;
+    if (!/[.!?]$/.test(tr.t) || !/[.!?]$/.test(tr.tp)) problems.push('Turkish t/tp must end with punctuation');
+    if (word.ti && (typeof tr.ti !== 'string' || !/m[ae]k$/.test(tr.ti))) problems.push(`Turkish ti must be an infinitive ending in -mak/-mek: ${tr.ti}`);
+    if (word.sgm && (typeof tr.sgm !== 'string' || !tr.sgm.trim())) problems.push('missing Turkish sgm');
+    const stems = Engine.checkStems({ m: tr.m, c: tr.c });
+    if (!stems.length) problems.push('no Turkish check stems (c)');
+    else if (!Engine.mentions(tr.t, stems) && !Engine.mentions(tr.tp, stems)) problems.push(`Turkish check stems (${stems.join(', ')}) do not appear in: ${tr.t}`);
+    return problems;
+  }
+
+  const api = { wordStems, containsWord, entryForms, validateEntry, validateTurkish, SEP_PREFIXES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   root.WortwegValidate = api;
 })(typeof window !== 'undefined' ? window : globalThis);
